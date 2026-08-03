@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Dapur Ibu - App Pengurusan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Pacifico&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --pink:#ec4899;
+    --purple:#7c3aed;
+    --grad: linear-gradient(135deg,#ec4899 0%,#a855f7 55%,#7c3aed 100%);
+    --bg:#faf7fc;
+    --card:#ffffff;
+    --ink:#2a1e30;
+    --muted:#8a7a92;
+    --line:#eee2f2;
+    --ok:#16a34a;
+    --warn:#e11d48;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:'Poppins',sans-serif;background:var(--bg);color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wrap{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;}
+
+  /* ---------- LOGIN ---------- */
+  #loginScreen{
+    min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+    padding:32px 28px;background:var(--grad);
+  }
+  .logo-word{
+    font-family:'Pacifico',cursive;color:#fff;font-size:42px;text-align:center;margin:0 0 4px;
+    text-shadow:0 2px 12px rgba(0,0,0,0.15);
+  }
+  .logo-sub{color:rgba(255,255,255,0.9);text-align:center;font-size:13px;letter-spacing:1.5px;
+    text-transform:uppercase;margin-bottom:36px;font-weight:600;}
+  .login-card{
+    background:#fff;border-radius:20px;padding:28px 24px;box-shadow:0 20px 40px rgba(60,10,60,0.25);
+  }
+  .login-card h2{margin:0 0 4px;font-size:20px;font-weight:700;}
+  .login-card p.hint{margin:0 0 20px;color:var(--muted);font-size:13px;}
+  label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:14px 0 6px;}
+  input[type=email],input[type=password],input[type=text]{
+    width:100%;padding:13px 14px;border-radius:12px;border:1.5px solid var(--line);
+    font-size:15px;font-family:inherit;background:#fbf9fc;
+  }
+  input:focus{outline:none;border-color:var(--purple);background:#fff;}
+  .btn-primary{
+    width:100%;margin-top:22px;padding:14px;border:none;border-radius:14px;
+    background:var(--grad);color:#fff;font-size:16px;font-weight:700;font-family:inherit;
+    cursor:pointer;box-shadow:0 8px 20px rgba(124,58,237,0.35);
+  }
+  .btn-primary:active{transform:scale(0.98);}
+  .btn-primary:disabled{opacity:0.6;}
+  .err-msg{background:#fef2f2;color:var(--warn);padding:10px 12px;border-radius:10px;font-size:13px;
+    margin-top:14px;display:none;}
+  .login-foot{text-align:center;color:rgba(255,255,255,0.85);font-size:12px;margin-top:22px;}
+
+  /* ---------- APP SHELL ---------- */
+  #appScreen{display:none;padding-bottom:90px;}
+  .topbar{
+    background:var(--grad);color:#fff;padding:20px 20px 22px;
+    border-radius:0 0 24px 24px;position:sticky;top:0;z-index:10;
+  }
+  .topbar-row{display:flex;justify-content:space-between;align-items:center;}
+  .topbar-word{font-family:'Pacifico',cursive;font-size:26px;}
+  .role-chip{
+    background:rgba(255,255,255,0.22);padding:4px 12px;border-radius:20px;font-size:11px;
+    font-weight:700;letter-spacing:0.5px;text-transform:uppercase;
+  }
+  .topbar-user{font-size:13px;opacity:0.9;margin-top:6px;}
+  .logout-btn{
+    background:none;border:1.5px solid rgba(255,255,255,0.5);color:#fff;border-radius:10px;
+    padding:6px 12px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;
+  }
+
+  .page{padding:20px;}
+  .page h1{font-size:19px;margin:0 0 4px;}
+  .page p.sub{color:var(--muted);font-size:13px;margin:0 0 20px;}
+
+  .menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:20px;}
+  .menu-tile{
+    background:var(--card);border-radius:16px;padding:18px 8px;text-align:center;
+    box-shadow:0 3px 10px rgba(124,58,237,0.08);border:1px solid var(--line);
+    cursor:pointer;transition:transform .1s;
+  }
+  .menu-tile:active{transform:scale(0.95);}
+  .menu-tile .ic{font-size:26px;display:block;margin-bottom:8px;}
+  .menu-tile .lb{font-size:12px;font-weight:600;color:var(--ink);line-height:1.3;}
+
+  .placeholder-card{
+    background:var(--card);border-radius:var(--radius);padding:32px 20px;text-align:center;
+    border:1.5px dashed var(--line);color:var(--muted);
+  }
+  .placeholder-card .ic{font-size:36px;display:block;margin-bottom:10px;}
+  .placeholder-card h3{color:var(--ink);margin:0 0 6px;font-size:16px;}
+  .placeholder-card p{font-size:13px;margin:0;line-height:1.5;}
+
+  /* bottom nav */
+  .bottomnav{
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;
+    background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;
+    padding:8px 4px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(0,0,0,0.05);
+  }
+  .nav-item{
+    background:none;border:none;font-family:inherit;display:flex;flex-direction:column;
+    align-items:center;gap:2px;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;
+    padding:4px 6px;flex:1;
+  }
+  .nav-item.active{color:var(--purple);}
+  .nav-item .ic{font-size:19px;}
+
+  .loading{display:flex;justify-content:center;align-items:center;min-height:100vh;color:#fff;font-size:14px;}
+
+  @media (min-width:481px){
+    .wrap{box-shadow:0 0 40px rgba(0,0,0,0.08);}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- LOADING -->
+  <div id="loadingScreen" class="loading" style="background:var(--grad);">Memuatkan...</div>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" style="display:none;">
+    <div class="logo-word">Dapur Ibu</div>
+    <div class="logo-sub">App Pengurusan Staff</div>
+    <div class="login-card">
+      <h2>Log Masuk</h2>
+      <p class="hint">Sila log masuk dengan akaun yang diberikan oleh admin.</p>
+      <label for="loginEmail">E-mel</label>
+      <input type="email" id="loginEmail" placeholder="contoh@email.com" autocomplete="username">
+      <label for="loginPass">Kata Laluan</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+      <button class="btn-primary" id="loginBtn" onclick="handleLogin()">Log Masuk</button>
+      <div class="err-msg" id="loginErr"></div>
+    </div>
+    <div class="login-foot">Legasi Dapur Ibu &copy; 2026</div>
+  </div>
+
+  <!-- APP SCREEN -->
+  <div id="appScreen">
+    <div class="topbar">
+      <div class="topbar-row">
+        <div class="topbar-word">Dapur Ibu</div>
+        <button class="logout-btn" onclick="handleLogout()">Log Keluar</button>
+      </div>
+      <div class="topbar-user">
+        <span id="userEmailLabel"></span>
+        &nbsp;<span class="role-chip" id="roleChip">-</span>
+      </div>
+    </div>
+
+    <!-- MAIN MENU -->
+    <div id="mainMenuPage" class="menu-grid"></div>
+
+    <!-- MODULE PAGES (placeholders) -->
+    <div id="modulePage" class="page" style="display:none;">
+      <h1 id="moduleTitle"></h1>
+      <p class="sub" id="moduleSub"></p>
+      <div class="placeholder-card">
+        <span class="ic">🛠️</span>
+        <h3>Sedang dibina</h3>
+        <p>Modul ini akan diisi pada langkah seterusnya. Struktur asas (login &amp; menu) sudah siap.</p>
+      </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottomnav" id="bottomNav"></div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   KONFIGURASI SUPABASE
+   Gantikan dua nilai di bawah dengan URL & anon key
+   dari project Supabase BARU yang Ibu buat khas untuk app ni.
+   (Project > Settings > API)
+   ========================================================= */
+const SUPABASE_URL = 'https://ionmfovbisvwglfzndzs.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_JuED0CfsMG9l9fv1c5HPpA_uOq0EnEF';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let currentRole = null; // 'admin' or 'pekerja'
+
+// Menu penuh (admin nampak semua)
+const ALL_MENU = [
+  {id:'dashboard', ic:'🏠', lb:'Dashboard', roles:['admin','pekerja']},
+  {id:'resepi',    ic:'📖', lb:'Resepi Saya', roles:['admin']},
+  {id:'scan',      ic:'📷', lb:'Scan Resepi', roles:['admin']},
+  {id:'tambah',    ic:'➕', lb:'Tambah Resepi', roles:['admin']},
+  {id:'sales',     ic:'💰', lb:'Sales Harian', roles:['admin','pekerja']},
+  {id:'drawer',    ic:'💵', lb:'Cash Drawer', roles:['admin','pekerja']},
+  {id:'laporan',   ic:'📊', lb:'Laporan', roles:['admin']},
+  {id:'pengguna',  ic:'👥', lb:'Pengguna', roles:['admin']},
+  {id:'tetapan',   ic:'⚙️', lb:'Tetapan', roles:['admin','pekerja']},
+];
+
+// Nav bawah - set utama yang selalu guna (boleh ubah ikut role)
+function bottomNavItemsForRole(role){
+  if(role === 'admin'){
+    return ['dashboard','sales','drawer','laporan','resepi'];
+  }
+  return ['dashboard','sales','drawer'];
+}
+
+async function init(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if(session){
+    await loadUserAndShowApp(session.user);
+  } else {
+    showLogin();
+  }
+}
+
+function showLogin(){
+  document.getElementById('loadingScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('appScreen').style.display='none';
+}
+
+async function loadUserAndShowApp(user){
+  currentUser = user;
+  // Jangkaan: jadual 'profiles' dengan lajur id (=auth uid), email, role, nama
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role, nama')
+    .eq('id', user.id)
+    .single();
+
+  if(error || !data){
+    document.getElementById('loginErr').textContent = 'Akaun ini belum ditetapkan role. Sila hubungi admin.';
+    document.getElementById('loginErr').style.display='block';
+    await supabase.auth.signOut();
+    showLogin();
+    return;
+  }
+
+  currentRole = data.role;
+  document.getElementById('userEmailLabel').textContent = data.nama || user.email;
+  document.getElementById('roleChip').textContent = currentRole === 'admin' ? 'ADMIN' : 'PEKERJA';
+
+  renderMenu();
+  renderBottomNav();
+  showApp();
+}
+
+function showApp(){
+  document.getElementById('loadingScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+}
+
+function renderMenu(){
+  const grid = document.getElementById('mainMenuPage');
+  grid.innerHTML='';
+  ALL_MENU.filter(m => m.roles.includes(currentRole)).forEach(m=>{
+    const tile = document.createElement('div');
+    tile.className='menu-tile';
+    tile.onclick = ()=>openModule(m.id, m.lb);
+    tile.innerHTML = `<span class="ic">${m.ic}</span><span class="lb">${m.lb}</span>`;
+    grid.appendChild(tile);
+  });
+}
+
+function renderBottomNav(){
+  const nav = document.getElementById('bottomNav');
+  nav.innerHTML='';
+  const ids = bottomNavItemsForRole(currentRole);
+  ids.forEach(id=>{
+    const m = ALL_MENU.find(x=>x.id===id);
+    if(!m) return;
+    const btn = document.createElement('button');
+    btn.className='nav-item';
+    btn.id = 'nav-'+id;
+    btn.onclick = ()=>openModule(m.id, m.lb, true);
+    btn.innerHTML = `<span class="ic">${m.ic}</span><span>${m.lb}</span>`;
+    nav.appendChild(btn);
+  });
+}
+
+function openModule(id, label){
+  // TODO: bila modul sebenar siap, ganti placeholder dengan render fungsi khusus modul tersebut
+  document.getElementById('mainMenuPage').style.display='none';
+  document.getElementById('modulePage').style.display='block';
+  document.getElementById('moduleTitle').textContent = label;
+  document.getElementById('moduleSub').textContent = 'Halaman ' + label;
+
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  const navBtn = document.getElementById('nav-'+id);
+  if(navBtn) navBtn.classList.add('active');
+
+  if(id === 'dashboard'){
+    document.getElementById('mainMenuPage').style.display='grid';
+    document.getElementById('modulePage').style.display='none';
+  }
+}
+
+async function handleLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errBox = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  errBox.style.display='none';
+
+  if(!email || !pass){
+    errBox.textContent = 'Sila isi e-mel dan kata laluan.';
+    errBox.style.display='block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Sedang log masuk...';
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+
+  btn.disabled = false;
+  btn.textContent = 'Log Masuk';
+
+  if(error){
+    errBox.textContent = 'E-mel atau kata laluan salah.';
+    errBox.style.display='block';
+    return;
+  }
+
+  await loadUserAndShowApp(data.user);
+}
+
+async function handleLogout(){
+  await supabase.auth.signOut();
+  currentUser = null;
+  currentRole = null;
+  document.getElementById('loginEmail').value='';
+  document.getElementById('loginPass').value='';
+  showLogin();
+}
+
+init();
+</script>
+</body>
+</html>
