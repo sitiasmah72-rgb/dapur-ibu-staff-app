@@ -163,6 +163,18 @@ let currentUser = null;
 let currentRole = null;
 let currentUserName = '';
 
+function showFatalError(msg){
+  const el = document.getElementById('loadingScreen');
+  el.innerHTML = '<div style="max-width:320px;text-align:center;padding:20px;">'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:10px;">⚠️ Ralat Sambungan</div>'
+    + '<div style="font-size:13px;line-height:1.5;">' + msg + '</div></div>';
+}
+// kalau init() tak siap dalam 8 saat, papar ralat supaya tak stuck senyap
+let initDone = false;
+setTimeout(()=>{
+  if(!initDone) showFatalError('Mengambil masa lama untuk sambung ke Supabase. Semak sambungan internet Ibu, atau cuba refresh (tekan butang refresh browser). Kalau berterusan, mungkin URL/Key Supabase tak tepat.');
+}, 8000);
+
 /* ============ TOAST & CONFIRM ============ */
 function toast(msg, isError){
   const box = document.getElementById('toastBox');
@@ -208,11 +220,13 @@ function bottomNavItemsForRole(role){
 async function init(){
   try{
     const { data, error } = await supabase.auth.getSession();
+    initDone = true;
     if(error){ showLogin(); return; }
     if(data.session){ await loadUserAndShowApp(data.session.user); }
     else { showLogin(); }
   } catch(e){
-    document.getElementById('loadingScreen').textContent = 'Ralat: ' + e.message;
+    initDone = true;
+    showFatalError('Ralat: ' + e.message);
   }
 }
 function showLogin(){
