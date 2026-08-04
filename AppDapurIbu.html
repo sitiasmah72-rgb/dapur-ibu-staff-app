@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Dapur Ibu - App Pengurusan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Pacifico&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --pink:#ec4899; --purple:#7c3aed;
+    --grad: linear-gradient(135deg,#ec4899 0%,#a855f7 55%,#7c3aed 100%);
+    --bg:#faf7fc; --card:#ffffff; --ink:#2a1e30; --muted:#8a7a92; --line:#eee2f2;
+    --ok:#16a34a; --ok-bg:#f0fdf4; --warn:#e11d48; --warn-bg:#fef2f2; --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Poppins',sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent;}
+  .wrap{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;}
+
+  #loadingScreen{min-height:100vh;display:flex;justify-content:center;align-items:center;background:var(--grad);color:#fff;font-size:14px;}
+
+  #loginScreen{min-height:100vh;display:none;flex-direction:column;justify-content:center;padding:32px 28px;background:var(--grad);}
+  .logo-word{font-family:'Pacifico',cursive;color:#fff;font-size:42px;text-align:center;margin:0 0 4px;text-shadow:0 2px 12px rgba(0,0,0,0.15);}
+  .logo-sub{color:rgba(255,255,255,0.9);text-align:center;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:32px;font-weight:600;}
+  .login-card{background:#fff;border-radius:20px;padding:26px 24px;box-shadow:0 20px 40px rgba(60,10,60,0.25);}
+  .login-card h2{margin:0 0 4px;font-size:18px;font-weight:700;}
+  .login-card p.hint{margin:0 0 18px;color:var(--muted);font-size:12.5px;line-height:1.5;}
+  .err-msg{background:#fef2f2;color:var(--warn);padding:10px 12px;border-radius:10px;font-size:12.5px;margin-top:12px;display:none;}
+  .login-foot{text-align:center;color:rgba(255,255,255,0.85);font-size:12px;margin-top:22px;}
+
+  #appScreen{display:none;padding-bottom:90px;}
+  .topbar{background:var(--grad);color:#fff;padding:20px 20px 22px;border-radius:0 0 24px 24px;position:sticky;top:0;z-index:10;}
+  .topbar-row{display:flex;justify-content:space-between;align-items:center;}
+  .topbar-word{font-family:'Pacifico',cursive;font-size:26px;}
+  .role-chip{background:rgba(255,255,255,0.22);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;}
+  .topbar-user{font-size:13px;opacity:0.9;margin-top:6px;}
+  .logout-btn{background:none;border:1.5px solid rgba(255,255,255,0.5);color:#fff;border-radius:10px;padding:6px 12px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;}
+
+  .page{padding:18px;}
+  .page h1{font-size:19px;margin:0 0 4px;}
+  .page p.sub{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  .back-link{background:none;border:none;color:var(--purple);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:0;margin-bottom:14px;display:flex;align-items:center;gap:4px;}
+
+  .menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:20px;}
+  .menu-tile{background:var(--card);border-radius:16px;padding:18px 8px;text-align:center;box-shadow:0 3px 10px rgba(124,58,237,0.08);border:1px solid var(--line);cursor:pointer;transition:transform .1s;}
+  .menu-tile:active{transform:scale(0.95);}
+  .menu-tile .ic{font-size:26px;display:block;margin-bottom:8px;}
+  .menu-tile .lb{font-size:12px;font-weight:600;color:var(--ink);line-height:1.3;}
+
+  .placeholder-card{background:var(--card);border-radius:var(--radius);padding:32px 20px;text-align:center;border:1.5px dashed var(--line);color:var(--muted);}
+  .placeholder-card .ic{font-size:36px;display:block;margin-bottom:10px;}
+  .placeholder-card h3{color:var(--ink);margin:0 0 6px;font-size:16px;}
+  .placeholder-card p{font-size:13px;margin:0;line-height:1.5;}
+
+  .card{background:var(--card);border-radius:var(--radius);padding:16px;border:1px solid var(--line);margin-bottom:14px;}
+  .card h3{margin:0 0 12px;font-size:14px;font-weight:700;}
+  .card h4{margin:14px 0 8px;font-size:12.5px;font-weight:700;color:var(--purple);}
+  .stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .stat-row:last-child{border-bottom:none;}
+  .stat-row .lb{color:var(--muted);}
+  .stat-row .val{font-weight:700;}
+  .stat-big{text-align:center;padding:8px 0 16px;}
+  .stat-big .num{font-size:30px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .stat-big .lb{font-size:12px;color:var(--muted);font-weight:600;}
+
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--ink);margin:12px 0 6px;}
+  input[type=email],input[type=password],input[type=text],input[type=number],input[type=date],select,textarea{width:100%;padding:12px 13px;border-radius:12px;border:1.5px solid var(--line);font-size:14.5px;font-family:inherit;background:#fbf9fc;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--purple);background:#fff;}
+  input[readonly]{background:#f3eef6;color:var(--muted);}
+  .btn-primary{width:100%;margin-top:16px;padding:13px;border:none;border-radius:14px;background:var(--grad);color:#fff;font-size:14.5px;font-weight:700;font-family:inherit;cursor:pointer;}
+  .btn-primary:active{transform:scale(0.98);}
+  .btn-primary:disabled{opacity:0.6;}
+  .btn-secondary{width:100%;margin-top:8px;padding:12px;border:1.5px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;}
+
+  .denom-table{width:100%;border-collapse:collapse;margin-top:6px;}
+  .denom-table th{text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;padding:6px 4px;border-bottom:1.5px solid var(--line);}
+  .denom-table td{padding:6px 4px;border-bottom:1px solid var(--line);font-size:13px;}
+  .denom-table td.dv{font-weight:700;}
+  .denom-table input{padding:8px;text-align:center;font-size:13px;}
+  .denom-table td.dt{text-align:right;font-weight:700;color:var(--purple);}
+
+  .banner{border-radius:14px;padding:14px 16px;font-size:13.5px;font-weight:700;text-align:center;margin-top:14px;}
+  .banner.ok{background:var(--ok-bg);color:var(--ok);}
+  .banner.warn{background:var(--warn-bg);color:var(--warn);}
+
+  .entry-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;gap:8px;}
+  .entry-item:last-child{border-bottom:none;}
+  .entry-item .pm-tag{background:#f3e8ff;color:var(--purple);font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:8px;margin-right:6px;}
+  .entry-item .amt{font-weight:700;white-space:nowrap;}
+  .entry-item .time{color:var(--muted);font-size:11px;}
+  .entry-item .sub2{color:var(--muted);font-size:11px;margin-top:2px;}
+  .del-btn{background:var(--warn-bg);color:var(--warn);border:none;border-radius:8px;width:26px;height:26px;flex-shrink:0;font-size:13px;font-weight:700;cursor:pointer;}
+
+  .bottomnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:8px 4px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(0,0,0,0.05);}
+  .nav-item{background:none;border:none;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;padding:4px 6px;flex:1;}
+  .nav-item.active{color:var(--purple);}
+  .nav-item .ic{font-size:19px;}
+
+  .spin-note{text-align:center;color:var(--muted);font-size:12.5px;padding:20px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="loadingScreen">Memuatkan...</div>
+
+  <div id="loginScreen">
+    <div class="logo-word">Dapur Ibu</div>
+    <div class="logo-sub">App Pengurusan Staff</div>
+    <div class="login-card">
+      <h2>Log Masuk</h2>
+      <p class="hint">Sila log masuk dengan akaun yang diberikan oleh admin.</p>
+      <label for="loginEmail">E-mel</label>
+      <input type="email" id="loginEmail" placeholder="contoh@email.com" autocomplete="username">
+      <label for="loginPass">Kata Laluan</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+      <button class="btn-primary" id="loginBtn" onclick="handleLogin()">Log Masuk</button>
+      <div class="err-msg" id="loginErr"></div>
+    </div>
+    <div class="login-foot">Legasi Dapur Ibu &copy; 2026</div>
+  </div>
+
+  <div id="appScreen">
+    <div class="topbar">
+      <div class="topbar-row">
+        <div class="topbar-word">Dapur Ibu</div>
+        <button class="logout-btn" onclick="handleLogout()">Log Keluar</button>
+      </div>
+      <div class="topbar-user"><span id="userLabel"></span>&nbsp;<span class="role-chip" id="roleChip">-</span></div>
+    </div>
+
+    <div id="mainMenuPage" class="menu-grid"></div>
+    <div id="modulePage" class="page" style="display:none;"></div>
+
+    <div class="bottomnav" id="bottomNav"></div>
+  </div>
+</div>
+
+<div id="toastBox" style="position:fixed;bottom:90px;left:50%;transform:translateX(-50%);max-width:420px;width:90%;z-index:200;"></div>
+
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(30,10,40,0.45);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:18px;padding:22px 20px;max-width:320px;width:88%;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+    <p id="confirmMsg" style="font-size:14px;margin:0 0 18px;line-height:1.5;color:var(--ink);"></p>
+    <div style="display:flex;gap:10px;">
+      <button id="confirmCancelBtn" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;">Batal</button>
+      <button id="confirmOkBtn" style="flex:1;padding:12px;border-radius:12px;border:none;background:var(--warn);color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;">Ya, Teruskan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   SUPABASE
+   ========================================================= */
+const SUPABASE_URL = 'https://ionmfovbisvwglfzndzs.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_JuED0CfsMG9l9fv1c5HPpA_uOq0EnEF';
+let supabase;
+try { supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+catch(e){ document.getElementById('loadingScreen').textContent = 'Ralat sambungan: ' + e.message; }
+
+let currentUser = null;
+let currentRole = null;
+let currentUserName = '';
+
+function showFatalError(msg){
+  const el = document.getElementById('loadingScreen');
+  el.innerHTML = '<div style="max-width:320px;text-align:center;padding:20px;">'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:10px;">⚠️ Ralat Sambungan</div>'
+    + '<div style="font-size:13px;line-height:1.5;">' + msg + '</div></div>';
+}
+// kalau init() tak siap dalam 8 saat, papar ralat supaya tak stuck senyap
+let initDone = false;
+setTimeout(()=>{
+  if(!initDone) showFatalError('Mengambil masa lama untuk sambung ke Supabase. Semak sambungan internet Ibu, atau cuba refresh (tekan butang refresh browser). Kalau berterusan, mungkin URL/Key Supabase tak tepat.');
+}, 8000);
+
+/* ============ TOAST & CONFIRM ============ */
+function toast(msg, isError){
+  const box = document.getElementById('toastBox');
+  const el = document.createElement('div');
+  el.style.cssText = `background:${isError?'#e11d48':'#2a1e30'};color:#fff;padding:12px 16px;border-radius:12px;font-size:13px;font-weight:600;margin-top:8px;box-shadow:0 6px 20px rgba(0,0,0,0.25);text-align:center;`;
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .3s'; el.style.opacity='0'; setTimeout(()=>el.remove(),300); }, 2600);
+}
+function showConfirm(msg, onConfirm){
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmModal').style.display = 'flex';
+  const okBtn = document.getElementById('confirmOkBtn');
+  const cancelBtn = document.getElementById('confirmCancelBtn');
+  const cleanup = () => { document.getElementById('confirmModal').style.display = 'none'; okBtn.onclick = null; cancelBtn.onclick = null; };
+  okBtn.onclick = () => { cleanup(); onConfirm(); };
+  cancelBtn.onclick = cleanup;
+}
+
+/* ============ HELPERS ============ */
+function todayISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function isoToDisplay(iso){ if(!iso) return '-'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
+function todayStr(){ return isoToDisplay(todayISO()); }
+function nowTimeStr(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function fmtRM(n){ return 'RM ' + (Math.round((n||0)*100)/100).toFixed(2); }
+
+/* ============ MENU ============ */
+const ALL_MENU = [
+  {id:'dashboard', ic:'🏠', lb:'Dashboard', roles:['admin','pekerja']},
+  {id:'resepi',    ic:'📖', lb:'Resepi Saya', roles:['admin']},
+  {id:'scan',      ic:'📷', lb:'Scan Resepi', roles:['admin']},
+  {id:'tambah',    ic:'➕', lb:'Tambah Resepi', roles:['admin']},
+  {id:'sales',     ic:'💰', lb:'Sales Harian', roles:['admin','pekerja']},
+  {id:'drawer',    ic:'💵', lb:'Cash Drawer', roles:['admin','pekerja']},
+  {id:'laporan',   ic:'📊', lb:'Laporan', roles:['admin']},
+  {id:'tetapan',   ic:'⚙️', lb:'Tetapan', roles:['admin','pekerja']},
+];
+function bottomNavItemsForRole(role){
+  return role === 'admin' ? ['dashboard','sales','drawer','laporan','resepi'] : ['dashboard','sales','drawer'];
+}
+
+/* ============ AUTH ============ */
+async function init(){
+  try{
+    const { data, error } = await supabase.auth.getSession();
+    initDone = true;
+    if(error){ showLogin(); return; }
+    if(data.session){ await loadUserAndShowApp(data.session.user); }
+    else { showLogin(); }
+  } catch(e){
+    initDone = true;
+    showFatalError('Ralat: ' + e.message);
+  }
+}
+function showLogin(){
+  document.getElementById('loadingScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('appScreen').style.display='none';
+}
+async function loadUserAndShowApp(user){
+  currentUser = user;
+  const { data, error } = await supabase.from('profiles').select('role, nama').eq('id', user.id).single();
+  if(error || !data){
+    document.getElementById('loginErr').textContent = 'Akaun belum ditetapkan role. Sila hubungi admin.';
+    document.getElementById('loginErr').style.display='block';
+    await supabase.auth.signOut();
+    showLogin();
+    return;
+  }
+  currentRole = data.role;
+  currentUserName = data.nama || user.email;
+  document.getElementById('userLabel').textContent = currentUserName;
+  document.getElementById('roleChip').textContent = currentRole==='admin' ? 'ADMIN' : 'PEKERJA';
+  renderMenu(); renderBottomNav();
+  document.getElementById('loadingScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  openModule('dashboard');
+}
+async function handleLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errBox = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  errBox.style.display='none';
+  if(!email || !pass){ errBox.textContent='Sila isi e-mel dan kata laluan.'; errBox.style.display='block'; return; }
+  btn.disabled=true; btn.textContent='Sedang log masuk...';
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  btn.disabled=false; btn.textContent='Log Masuk';
+  if(error){ errBox.textContent='E-mel atau kata laluan salah.'; errBox.style.display='block'; return; }
+  document.getElementById('loadingScreen').style.display='flex';
+  await loadUserAndShowApp(data.user);
+}
+async function handleLogout(){
+  await supabase.auth.signOut();
+  currentUser=null; currentRole=null;
+  document.getElementById('loginEmail').value='';
+  document.getElementById('loginPass').value='';
+  showLogin();
+}
+
+function renderMenu(){
+  const grid = document.getElementById('mainMenuPage');
+  grid.innerHTML='';
+  ALL_MENU.filter(m=>m.roles.includes(currentRole)).forEach(m=>{
+    const t=document.createElement('div');
+    t.className='menu-tile';
+    t.onclick=()=>openModule(m.id);
+    t.innerHTML=`<span class="ic">${m.ic}</span><span class="lb">${m.lb}</span>`;
+    grid.appendChild(t);
+  });
+}
+function renderBottomNav(){
+  const nav=document.getElementById('bottomNav');
+  nav.innerHTML='';
+  bottomNavItemsForRole(currentRole).forEach(id=>{
+    const m=ALL_MENU.find(x=>x.id===id);
+    const b=document.createElement('button');
+    b.className='nav-item'; b.id='nav-'+id;
+    b.onclick=()=>openModule(id);
+    b.innerHTML=`<span class="ic">${m.ic}</span><span>${m.lb}</span>`;
+    nav.appendChild(b);
+  });
+}
+
+/* ============ ROUTER ============ */
+async function openModule(id){
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  const navBtn=document.getElementById('nav-'+id);
+  if(navBtn) navBtn.classList.add('active');
+
+  const menuGrid = document.getElementById('mainMenuPage');
+  const mod = document.getElementById('modulePage');
+  const oldSummary = document.getElementById('dashSummary');
+  if(oldSummary) oldSummary.remove();
+
+  if(id==='dashboard'){
+    menuGrid.style.display='grid'; mod.style.display='none';
+    await renderDashboard();
+    return;
+  }
+  menuGrid.style.display='none'; mod.style.display='block';
+  mod.innerHTML = `<p class="spin-note">Memuatkan data...</p>`;
+
+  const renderers = { sales: renderSales, drawer: renderDrawer, laporan: renderLaporan, resepi: renderResepiList, tambah: renderTambahResepi, scan: renderScanResepi };
+  if(renderers[id]) await renderers[id](); else renderPlaceholder(id);
+}
+function backToMenu(){ openModule('dashboard'); }
+function renderPlaceholder(id){
+  const m = ALL_MENU.find(x=>x.id===id);
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="backToMenu()">← Kembali</button>
+    <h1>${m.lb}</h1>
+    <div class="placeholder-card"><span class="ic">🛠️</span><h3>Sedang dibina</h3><p>Modul ini akan diisi kemudian.</p></div>`;
+}
+
+/* ============ DATA: SALES HARIAN ============ */
+const PAY_METHODS = [
+  {id:'cash', label:'Cash', ic:'💵'},
+  {id:'qrtransfer', label:'QR/Transfer', ic:'📲'},
+  {id:'shopeefood', label:'ShopeeFood', ic:'🛵'},
+  {id:'foodpanda', label:'Foodpanda', ic:'🐼'},
+  {id:'lain', label:'Lain-lain', ic:'➕'},
+];
+let salesEntries = [];
+let vendorSales = [];
+
+async function loadSalesEntries(){
+  const { data, error } = await supabase.from('sales_entries').select('*').eq('tarikh', todayISO()).order('created_at');
+  salesEntries = error ? [] : data.map(r=>({ id:r.id, method:r.method, amount:Number(r.amount), note:r.note||'', time:r.waktu||'' }));
+}
+async function loadVendorSales(){
+  const { data, error } = await supabase.from('vendor_sales').select('*').eq('tarikh_bayaran', todayISO()).order('created_at');
+  vendorSales = error ? [] : data.map(r=>({ id:r.id, kedai:r.kedai, noResit:r.no_resit||'', tarikhHantar:r.tarikh_hantar||'-', kaedahBayaran:r.kaedah_bayaran||'cash', jumlah:Number(r.jumlah), tarikhBayaran: isoToDisplay(r.tarikh_bayaran) }));
+}
+function salesTotals(){
+  const t = {grand:0};
+  PAY_METHODS.forEach(pm=>t[pm.id]=0);
+  salesEntries.forEach(e=>{ t[e.method]=(t[e.method]||0)+e.amount; });
+  const vendorTotal = vendorSales.reduce((s,v)=>s+v.jumlah,0);
+  t.vendor = vendorTotal;
+  t.grand = PAY_METHODS.reduce((s,pm)=>s+t[pm.id],0) + vendorTotal;
+  return t;
+}
+
+/* ============ DATA: CASH DRAWER ============ */
+const DENOMS = [100,50,20,10,5,1,'0.5','0.2','0.1','0.05'];
+function denomLabel(d){ return (d>=1)? ('RM'+d) : (Math.round(d*100)+' sen'); }
+function denomTotalOf(obj){ return DENOMS.reduce((s,d)=> s + (obj[d]||0)*Number(d), 0); }
+function emptyDenom(){ const o={}; DENOMS.forEach(d=>o[d]=0); return o; }
+
+let cashDrawerRowId = null;
+let openingCash = { employee:'', time:'', amount:0 };
+let openDenom = emptyDenom();
+let closeDenom = emptyDenom();
+let closing = null;
+
+async function loadCashDrawerToday(){
+  const { data, error } = await supabase.from('cash_drawer_days').select('*').eq('tarikh', todayISO()).maybeSingle();
+  if(error || !data){
+    cashDrawerRowId = null;
+    openingCash = { employee:'', time:'', amount:0 };
+    openDenom = emptyDenom(); closeDenom = emptyDenom(); closing = null;
+    return;
+  }
+  cashDrawerRowId = data.id;
+  openingCash = { employee: data.opening_employee||'', time: data.opening_time||'', amount: Number(data.opening_amount)||0 };
+  openDenom = Object.assign(emptyDenom(), data.opening_denom||{});
+  closeDenom = Object.assign(emptyDenom(), data.closing_denom||{});
+  closing = data.is_closed ? {
+    closeEmp: data.closing_employee, closeTime: data.closing_time,
+    cashOut: Number(data.cash_out)||0, bankIn: Number(data.bank_in)||0, expense: Number(data.expense)||0,
+    serahIbu: Number(data.serah_ibu)||0, physical: Number(data.physical)||0, expected: Number(data.expected)||0,
+    diff: Number(data.diff)||0, statusLabel: data.status_label, statusType: data.status_type, bakiAkhir: Number(data.baki_akhir)||0,
+  } : null;
+}
+function currentCashEstimate(){ return openingCash.amount + (salesTotals().cash||0); }
+
+/* ============ DASHBOARD ============ */
+async function renderDashboard(){
+  document.getElementById('mainMenuPage').insertAdjacentHTML('afterend', `<div id="dashSummary" class="page" style="padding-bottom:0;"><p class="spin-note">Memuatkan...</p></div>`);
+  await Promise.all([loadSalesEntries(), loadVendorSales(), loadCashDrawerToday()]);
+  const totals = salesTotals();
+  const div = document.getElementById('dashSummary');
+  div.innerHTML = `
+    <div class="card">
+      <div class="stat-big"><div class="num">${fmtRM(totals.grand)}</div><div class="lb">JUMLAH SALES HARI INI</div></div>
+      ${PAY_METHODS.map(pm=>`<div class="stat-row"><span class="lb">${pm.ic} ${pm.label}</span><span class="val">${fmtRM(totals[pm.id]||0)}</span></div>`).join('')}
+      <div class="stat-row"><span class="lb">🧾 Jualan Vendor (Shell Tart)</span><span class="val">${fmtRM(totals.vendor)}</span></div>
+    </div>
+    <div class="card">
+      <h3>💵 Status Cash Drawer</h3>
+      <div class="stat-row"><span class="lb">Dibuka oleh</span><span class="val">${openingCash.employee||'-'} (${openingCash.time||'-'})</span></div>
+      <div class="stat-row"><span class="lb">Kiraan Nilai Permulaan</span><span class="val">${fmtRM(openingCash.amount)}</span></div>
+      <div class="stat-row"><span class="lb">Jumlah Semasa (+ Sales Cash Hari Ini)</span><span class="val">${fmtRM(currentCashEstimate())}</span></div>
+      ${closing ? `
+        <div class="stat-row" style="border-top:1.5px solid var(--line);margin-top:6px;padding-top:10px;"><span class="lb">Ditutup oleh</span><span class="val">${closing.closeEmp} (${closing.closeTime})</span></div>
+        <div class="stat-row"><span class="lb">Kiraan Nilai Penutup</span><span class="val">${fmtRM(closing.physical)}</span></div>
+        <div class="stat-row"><span class="lb">Status</span><span class="val" style="color:${closing.statusType==='ok'?'var(--ok)':'var(--warn)'}">${closing.statusLabel}</span></div>
+      ` : `<div class="stat-row"><span class="lb">Status</span><span class="val" style="color:var(--muted)">Belum tutup kedai</span></div>`}
+    </div>
+  `;
+}
+
+/* ============ SALES HARIAN ============ */
+async function renderSales(){
+  await Promise.all([loadSalesEntries(), loadVendorSales()]);
+  drawSalesPage();
+}
+function drawSalesPage(){
+  const totals = salesTotals();
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="backToMenu()">← Kembali</button>
+    <h1>💰 Sales Harian</h1>
+    <p class="sub">${todayStr()}</p>
+
+    <div class="card">
+      <div class="stat-big"><div class="num">${fmtRM(totals.grand)}</div><div class="lb">JUMLAH SALES HARI INI</div></div>
+      ${PAY_METHODS.map(pm=>`<div class="stat-row"><span class="lb">${pm.ic} ${pm.label}</span><span class="val">${fmtRM(totals[pm.id]||0)}</span></div>`).join('')}
+      <div class="stat-row"><span class="lb">🧾 Jualan Vendor</span><span class="val">${fmtRM(totals.vendor)}</span></div>
+    </div>
+
+    <div class="card" id="salesForm">
+      <h3>➕ Tambah Rekod Jualan</h3>
+      <label>Kaedah Pembayaran</label>
+      <select id="salesMethod">${PAY_METHODS.map(pm=>`<option value="${pm.id}">${pm.ic} ${pm.label}</option>`).join('')}</select>
+      <label>Jumlah (RM)</label>
+      <input type="number" id="salesAmount" placeholder="0.00" min="0" step="0.01">
+      <label>Catatan (jika perlu)</label>
+      <input type="text" id="salesNote" placeholder="Contoh: order WhatsApp">
+      <button class="btn-primary" id="salesSaveBtn" onclick="addSalesEntry()">Simpan Rekod</button>
+    </div>
+
+    <div class="card">
+      <h3>📋 Rekod Hari Ini (${salesEntries.length})</h3>
+      <div id="salesList">${renderSalesList()}</div>
+    </div>
+
+    <div class="card" id="vendorForm">
+      <h3>🧾 Jualan Vendor (Shell Tart)</h3>
+      <p class="sub" style="margin-bottom:10px;">Bekalan borong ke kedai (Mama Baker, Suri Bakery, dll.)</p>
+      <label>Nama Kedai</label>
+      <input type="text" id="vKedai" placeholder="Contoh: Mama Baker">
+      <label>No. Resit</label>
+      <input type="text" id="vResit" placeholder="Contoh: INV-0245">
+      <label>Tarikh Hantar Stock (dari resit)</label>
+      <input type="date" id="vTarikhHantar">
+      <label>Kaedah Bayaran</label>
+      <select id="vKaedah"><option value="cash">💵 Cash</option><option value="transfer">🏦 Transfer</option></select>
+      <label>Jumlah (RM)</label>
+      <input type="number" id="vJumlah" placeholder="0.00" min="0" step="0.01">
+      <label>Tarikh Bayaran</label>
+      <input type="text" id="vTarikhBayaran" value="${todayStr()}" readonly>
+      <button class="btn-primary" id="vendorSaveBtn" onclick="addVendorSale()">Simpan Jualan Vendor</button>
+    </div>
+
+    <div class="card">
+      <h3>📋 Senarai Jualan Vendor (${vendorSales.length})</h3>
+      <p class="sub" style="margin-bottom:10px;">Rekod disimpan kekal. ${currentRole==='admin' ? 'Sebagai Admin, Ibu boleh padam rekod.' : 'Hanya Admin boleh padam rekod ini.'}</p>
+      <div id="vendorList">${renderVendorList()}</div>
+    </div>
+  `;
+}
+function renderSalesList(){
+  if(salesEntries.length===0) return `<p style="color:var(--muted);font-size:13px;">Belum ada rekod. Tambah rekod pertama Ibu di atas.</p>`;
+  return [...salesEntries].reverse().map(e=>{
+    const pm = PAY_METHODS.find(p=>p.id===e.method);
+    return `<div class="entry-item">
+      <div onclick="editSalesEntry('${e.id}')" style="cursor:pointer;flex:1;">
+        <span class="pm-tag">${pm.ic} ${pm.label}</span>${e.note?('<span style="color:var(--muted)">'+e.note+'</span>'):''}<div class="time">${e.time} · ketik untuk edit</div>
+      </div>
+      <div class="amt">${fmtRM(e.amount)}</div>
+      <button class="del-btn" onclick="deleteSalesEntry('${e.id}')" title="Padam">✕</button>
+    </div>`;
+  }).join('');
+}
+async function addSalesEntry(){
+  const method = document.getElementById('salesMethod').value;
+  const amount = parseFloat(document.getElementById('salesAmount').value);
+  const note = document.getElementById('salesNote').value.trim();
+  if(!amount || amount<=0){ toast('Sila masukkan jumlah yang sah.', true); return; }
+  const btn = document.getElementById('salesSaveBtn'); btn.disabled=true; btn.textContent='Menyimpan...';
+  const editId = document.getElementById('salesForm').dataset.editId;
+  let error;
+  if(editId){
+    ({error} = await supabase.from('sales_entries').update({method, amount, note}).eq('id', editId));
+    delete document.getElementById('salesForm').dataset.editId;
+  } else {
+    ({error} = await supabase.from('sales_entries').insert({ tarikh: todayISO(), method, amount, note, waktu: nowTimeStr(), created_by: currentUser.id }));
+  }
+  btn.disabled=false; btn.textContent='Simpan Rekod';
+  if(error){ toast('Ralat simpan: ' + error.message, true); return; }
+  await loadSalesEntries();
+  drawSalesPage();
+}
+function editSalesEntry(id){
+  const e = salesEntries.find(x=>x.id===id);
+  if(!e) return;
+  document.getElementById('salesMethod').value = e.method;
+  document.getElementById('salesAmount').value = e.amount;
+  document.getElementById('salesNote').value = e.note;
+  document.getElementById('salesForm').dataset.editId = id;
+  document.getElementById('salesForm').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function deleteSalesEntry(id){
+  showConfirm('Padam rekod ini?', async ()=>{
+    const { error } = await supabase.from('sales_entries').delete().eq('id', id);
+    if(error){ toast('Ralat padam: ' + error.message, true); return; }
+    await loadSalesEntries();
+    drawSalesPage();
+  });
+}
+function renderVendorList(){
+  if(vendorSales.length===0) return `<p style="color:var(--muted);font-size:13px;">Belum ada rekod.</p>`;
+  return [...vendorSales].reverse().map(v=>`
+    <div class="entry-item">
+      <div onclick="editVendorSale('${v.id}')" style="cursor:pointer;flex:1;">
+        <span class="pm-tag">🧾 ${v.kedai}</span><span class="pm-tag">${v.kaedahBayaran==='cash'?'💵 Cash':'🏦 Transfer'}</span>
+        <div class="sub2">No. Resit: ${v.noResit||'-'} • Hantar: ${v.tarikhHantar}</div>
+        <div class="sub2">Bayaran: ${v.tarikhBayaran} · ketik untuk edit</div>
+      </div>
+      <div class="amt">${fmtRM(v.jumlah)}</div>
+      ${currentRole==='admin' ? `<button class="del-btn" onclick="deleteVendorSale('${v.id}')" title="Padam">✕</button>` : ''}
+    </div>`).join('');
+}
+async function addVendorSale(){
+  const kedai = document.getElementById('vKedai').value.trim();
+  const noResit = document.getElementById('vResit').value.trim();
+  const tarikhHantar = document.getElementById('vTarikhHantar').value;
+  const kaedahBayaran = document.getElementById('vKaedah').value;
+  const jumlah = parseFloat(document.getElementById('vJumlah').value);
+  if(!kedai || !jumlah || jumlah<=0){ toast('Sila isi nama kedai dan jumlah yang sah.', true); return; }
+  const btn = document.getElementById('vendorSaveBtn'); btn.disabled=true; btn.textContent='Menyimpan...';
+  const editId = document.getElementById('vendorForm').dataset.editId;
+  let error;
+  if(editId){
+    ({error} = await supabase.from('vendor_sales').update({ kedai, no_resit:noResit, tarikh_hantar: tarikhHantar||null, kaedah_bayaran:kaedahBayaran, jumlah }).eq('id', editId));
+    delete document.getElementById('vendorForm').dataset.editId;
+  } else {
+    ({error} = await supabase.from('vendor_sales').insert({ kedai, no_resit:noResit, tarikh_hantar: tarikhHantar||null, kaedah_bayaran:kaedahBayaran, jumlah, tarikh_bayaran: todayISO(), created_by: currentUser.id }));
+  }
+  btn.disabled=false; btn.textContent='Simpan Jualan Vendor';
+  if(error){ toast('Ralat simpan: ' + error.message, true); return; }
+  await loadVendorSales();
+  drawSalesPage();
+}
+function editVendorSale(id){
+  const v = vendorSales.find(x=>x.id===id);
+  if(!v) return;
+  document.getElementById('vKedai').value = v.kedai;
+  document.getElementById('vResit').value = v.noResit;
+  document.getElementById('vTarikhHantar').value = v.tarikhHantar!=='-' ? v.tarikhHantar : '';
+  document.getElementById('vKaedah').value = v.kaedahBayaran || 'cash';
+  document.getElementById('vJumlah').value = v.jumlah;
+  document.getElementById('vendorForm').dataset.editId = id;
+  document.getElementById('vendorForm').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function deleteVendorSale(id){
+  if(currentRole!=='admin'){ toast('Hanya Admin (Ibu) boleh padam rekod jualan vendor.', true); return; }
+  showConfirm('Padam rekod ini?', async ()=>{
+    const { error } = await supabase.from('vendor_sales').delete().eq('id', id);
+    if(error){ toast('Ralat padam: ' + error.message, true); return; }
+    await loadVendorSales();
+    drawSalesPage();
+  });
+}
+
+/* ============ CASH DRAWER ============ */
+function renderDenomTable(groupId, stateObj){
+  return `
+    <table class="denom-table">
+      <tr><th>Nilai</th><th>Bilangan</th><th style="text-align:right;">Jumlah</th></tr>
+      ${DENOMS.map(d=>`
+        <tr>
+          <td class="dv">${denomLabel(d)}</td>
+          <td><input type="number" min="0" data-group="${groupId}" data-denom="${d}" value="${stateObj[d]||0}" oninput="onDenomChange('${groupId}')"></td>
+          <td class="dt" id="dt-${groupId}-${d}">${fmtRM((stateObj[d]||0)*Number(d))}</td>
+        </tr>`).join('')}
+    </table>
+    <div class="stat-row" style="margin-top:4px;"><span class="lb" style="font-weight:700;">Jumlah</span><span class="val" id="total-${groupId}" style="font-size:15px;">${fmtRM(denomTotalOf(stateObj))}</span></div>
+  `;
+}
+function onDenomChange(groupId){
+  const stateObj = groupId==='open' ? openDenom : closeDenom;
+  document.querySelectorAll(`[data-group="${groupId}"]`).forEach(inp=>{
+    const d = inp.getAttribute('data-denom');
+    const val = parseInt(inp.value)||0;
+    stateObj[d]=val;
+    document.getElementById(`dt-${groupId}-${d}`).textContent = fmtRM(val*Number(d));
+  });
+  document.getElementById('total-'+groupId).textContent = fmtRM(denomTotalOf(stateObj));
+  if(groupId==='close') updateBakiAkhirLive();
+}
+function updateBakiAkhirLive(){
+  const el = document.getElementById('serahIbu');
+  const serahIbu = el ? (parseFloat(el.value)||0) : 0;
+  const physical = denomTotalOf(closeDenom);
+  const out = document.getElementById('bakiAkhirLive');
+  if(out) out.textContent = fmtRM(physical - serahIbu);
+}
+async function renderDrawer(){
+  await Promise.all([loadSalesEntries(), loadCashDrawerToday()]);
+  drawDrawerPage();
+}
+function drawDrawerPage(){
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="backToMenu()">← Kembali</button>
+    <h1>💵 Cash Drawer</h1>
+    <p class="sub">${todayStr()}</p>
+
+    <div class="card">
+      <h3>🔓 Buka Kedai</h3>
+      <label>Nama Pekerja</label>
+      <input type="text" id="openEmp" value="${openingCash.employee}">
+      <label>Masa Buka</label>
+      <input type="text" id="openTime" value="${openingCash.time}">
+      <h4>Kiraan Wang Permulaan (ikut nilai)</h4>
+      ${renderDenomTable('open', openDenom)}
+      <button class="btn-secondary" id="openSaveBtn" onclick="saveOpening()">Simpan Opening Cash</button>
+    </div>
+
+    <div class="card">
+      <h3>🔒 Tutup Kedai</h3>
+      <label>Nama Pekerja (Tutup)</label>
+      <input type="text" id="closeEmp" value="${openingCash.employee}">
+      <label>Masa Tutup</label>
+      <input type="text" id="closeTime" placeholder="Contoh: 22:00">
+      <label>Cash Keluar dari Drawer (RM)</label>
+      <input type="number" id="cashOut" value="0" min="0" step="0.01">
+      <label>Cash Bank-in (RM)</label>
+      <input type="number" id="bankIn" value="0" min="0" step="0.01">
+      <label>Perbelanjaan Tunai Kedai (RM)</label>
+      <input type="number" id="expense" value="0" min="0" step="0.01">
+      <label>Nota (jika ada perbezaan)</label>
+      <input type="text" id="closeNote" placeholder="Sebab perbezaan, jika ada">
+      <h4>Kiraan Wang Penutup (ikut nilai)</h4>
+      ${renderDenomTable('close', closeDenom)}
+      <label>Jumlah Diserahkan kepada Ibu (RM)</label>
+      <input type="number" id="serahIbu" value="${closing ? closing.serahIbu : 0}" min="0" step="0.01" oninput="updateBakiAkhirLive()">
+      <div class="stat-row" style="margin-top:4px;"><span class="lb" style="font-weight:700;">Baki Tinggal Dalam Drawer</span><span class="val" id="bakiAkhirLive" style="font-size:15px;">${fmtRM(denomTotalOf(closeDenom))}</span></div>
+      <button class="btn-primary" id="closeSaveBtn" onclick="doClosing()">${closing ? 'Kemaskini Tutup Kedai' : 'Semak &amp; Tutup Kedai'}</button>
+      <p class="sub" style="margin:8px 0 0;font-size:11.5px;">Ibu boleh kemaskini nombor di atas bila-bila jika tersilap masuk, kemudian tekan butang sekali lagi.</p>
+    </div>
+
+    <div id="closingResult"></div>
+  `;
+  if(closing) showClosingResult(closing);
+}
+async function saveOpening(){
+  const employee = document.getElementById('openEmp').value.trim() || 'Pekerja';
+  const time = document.getElementById('openTime').value.trim() || '00:00';
+  const amount = denomTotalOf(openDenom);
+  const btn = document.getElementById('openSaveBtn'); btn.disabled=true; btn.textContent='Menyimpan...';
+  let error;
+  if(cashDrawerRowId){
+    ({error} = await supabase.from('cash_drawer_days').update({ opening_employee:employee, opening_time:time, opening_amount:amount, opening_denom:openDenom }).eq('id', cashDrawerRowId));
+  } else {
+    const { data, error: insErr } = await supabase.from('cash_drawer_days').insert({ tarikh: todayISO(), opening_employee:employee, opening_time:time, opening_amount:amount, opening_denom:openDenom, created_by: currentUser.id }).select().single();
+    error = insErr;
+    if(!error && data) cashDrawerRowId = data.id;
+  }
+  btn.disabled=false; btn.textContent='Simpan Opening Cash';
+  if(error){ toast('Ralat simpan: ' + error.message, true); return; }
+  openingCash = { employee, time, amount };
+  toast('Opening cash disimpan: ' + fmtRM(amount));
+}
+async function doClosing(){
+  const totals = salesTotals();
+  const closeEmp = document.getElementById('closeEmp').value.trim() || 'Pekerja';
+  const closeTime = document.getElementById('closeTime').value.trim() || '00:00';
+  const cashOut = parseFloat(document.getElementById('cashOut').value)||0;
+  const bankIn = parseFloat(document.getElementById('bankIn').value)||0;
+  const expense = parseFloat(document.getElementById('expense').value)||0;
+  const serahIbu = parseFloat(document.getElementById('serahIbu').value)||0;
+  const note = document.getElementById('closeNote').value.trim();
+  const physical = denomTotalOf(closeDenom);
+
+  const expected = openingCash.amount + (totals.cash||0) - cashOut - bankIn - expense;
+  const diff = Math.round((physical - expected)*100)/100;
+  let statusLabel, statusType;
+  if(diff===0){ statusLabel='✅ Cash drawer seimbang. Tiada perbezaan.'; statusType='ok'; }
+  else if(diff>0){ statusLabel=`⚠️ Cash lebih sebanyak ${fmtRM(diff)}.`; statusType='warn'; }
+  else { statusLabel=`⚠️ Cash kurang sebanyak ${fmtRM(Math.abs(diff))}.`; statusType='warn'; }
+  const bakiAkhir = Math.round((physical - serahIbu)*100)/100;
+
+  const btn = document.getElementById('closeSaveBtn'); btn.disabled=true; btn.textContent='Menyimpan...';
+  const payload = {
+    closing_employee: closeEmp, closing_time: closeTime, cash_out: cashOut, bank_in: bankIn, expense, serah_ibu: serahIbu,
+    closing_denom: closeDenom, physical, expected, diff, status_label: statusLabel, status_type: statusType, baki_akhir: bakiAkhir,
+    note, is_closed: true, updated_at: new Date().toISOString(),
+  };
+  let error;
+  if(cashDrawerRowId){
+    ({error} = await supabase.from('cash_drawer_days').update(payload).eq('id', cashDrawerRowId));
+  } else {
+    const { data, error: insErr } = await supabase.from('cash_drawer_days').insert({ tarikh: todayISO(), created_by: currentUser.id, ...payload }).select().single();
+    error = insErr;
+    if(!error && data) cashDrawerRowId = data.id;
+  }
+  btn.disabled=false; btn.textContent='Kemaskini Tutup Kedai';
+  if(error){ toast('Ralat simpan: ' + error.message, true); return; }
+
+  closing = { closeEmp, closeTime, expected, physical, diff, statusLabel, statusType, cashOut, bankIn, expense, serahIbu, bakiAkhir, note };
+  showClosingResult(closing);
+  toast('Tutup kedai disimpan.');
+}
+function showClosingResult(c){
+  const totals = salesTotals();
+  document.getElementById('closingResult').innerHTML = `
+    <div class="card">
+      <h3>📊 Semakan Kiraan Drawer (sebelum diserah)</h3>
+      <div class="stat-row"><span class="lb">Opening Cash (dari kiraan)</span><span class="val">${fmtRM(openingCash.amount)}</span></div>
+      <div class="stat-row"><span class="lb">+ Sales Cash</span><span class="val">${fmtRM(totals.cash||0)}</span></div>
+      <div class="stat-row"><span class="lb">- Cash Keluar</span><span class="val">${fmtRM(c.cashOut)}</span></div>
+      <div class="stat-row"><span class="lb">- Bank-in</span><span class="val">${fmtRM(c.bankIn)}</span></div>
+      <div class="stat-row"><span class="lb">- Perbelanjaan</span><span class="val">${fmtRM(c.expense)}</span></div>
+      <div class="stat-row"><span class="lb" style="font-weight:700;">= Cash Sepatutnya Ada</span><span class="val">${fmtRM(c.expected)}</span></div>
+      <div class="stat-row"><span class="lb" style="font-weight:700;">Cash Fizikal (Kiraan Penutup)</span><span class="val">${fmtRM(c.physical)}</span></div>
+    </div>
+    <div class="banner ${c.statusType}">${c.statusLabel}</div>
+    <div class="card">
+      <h3>🤲 Selepas Diserah kepada Ibu</h3>
+      <div class="stat-row"><span class="lb">Ditutup oleh</span><span class="val">${c.closeEmp} (${c.closeTime})</span></div>
+      <div class="stat-row"><span class="lb">Cash Fizikal (Kiraan Penutup)</span><span class="val">${fmtRM(c.physical)}</span></div>
+      <div class="stat-row"><span class="lb">- Diserahkan kepada Ibu</span><span class="val">${fmtRM(c.serahIbu)}</span></div>
+      <div class="stat-row"><span class="lb" style="font-weight:700;">= Baki Tinggal Dalam Drawer</span><span class="val" style="font-size:16px;">${fmtRM(c.bakiAkhir)}</span></div>
+    </div>
+  `;
+}
+
+/* ============ LAPORAN / SEJARAH ============ */
+async function computeDayTotals(dateISO){
+  const [{data:se}, {data:vs}] = await Promise.all([
+    supabase.from('sales_entries').select('method, amount').eq('tarikh', dateISO),
+    supabase.from('vendor_sales').select('jumlah').eq('tarikh_bayaran', dateISO),
+  ]);
+  const t = {grand:0}; PAY_METHODS.forEach(pm=>t[pm.id]=0);
+  (se||[]).forEach(r=>{ t[r.method]=(t[r.method]||0)+Number(r.amount); });
+  const vendorTotal = (vs||[]).reduce((s,r)=>s+Number(r.jumlah),0);
+  t.vendor = vendorTotal;
+  t.grand = PAY_METHODS.reduce((s,pm)=>s+t[pm.id],0) + vendorTotal;
+  return t;
+}
+async function renderLaporan(){
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="backToMenu()">← Kembali</button>
+    <h1>📊 Laporan &amp; Sejarah</h1>
+    <p class="sub">Tekan tarikh untuk lihat butiran hari tersebut.</p>
+    <div id="historyList"><p class="spin-note">Memuatkan sejarah...</p></div>
+  `;
+  const { data, error } = await supabase.from('cash_drawer_days').select('*').eq('is_closed', true).order('tarikh', {ascending:false});
+  const days = error ? [] : data;
+  if(days.length===0){
+    document.getElementById('historyList').innerHTML = `<div class="placeholder-card"><span class="ic">📁</span><h3>Belum ada sejarah</h3><p>Sejarah akan muncul di sini secara automatik setiap kali "Semak &amp; Tutup Kedai" di Cash Drawer.</p></div>`;
+    return;
+  }
+  const totalsAll = await Promise.all(days.map(d=>computeDayTotals(d.tarikh)));
+  document.getElementById('historyList').innerHTML = `<div class="card" style="padding:6px 16px;">` +
+    days.map((d,i)=>`
+      <div class="entry-item" style="cursor:pointer;" onclick="openLaporanDetail('${d.id}')">
+        <div>
+          <span style="font-weight:700;">📅 ${isoToDisplay(d.tarikh)}</span>
+          <div class="sub2">Ditutup ${d.closing_time||'-'} oleh ${d.closing_employee||'-'}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="amt">${fmtRM(totalsAll[i].grand)}</div>
+          <div class="sub2" style="color:${d.status_type==='ok'?'var(--ok)':'var(--warn)'}">${d.status_type==='ok'?'✅ Seimbang':'⚠️ Ada Perbezaan'}</div>
+        </div>
+      </div>
+    `).join('') + `</div>`;
+}
+async function openLaporanDetail(id){
+  const { data: d, error } = await supabase.from('cash_drawer_days').select('*').eq('id', id).single();
+  if(error || !d) return;
+  const totals = await computeDayTotals(d.tarikh);
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="openModule('laporan')">← Senarai Tarikh</button>
+    <h1>📅 ${isoToDisplay(d.tarikh)}</h1>
+    <p class="sub">Ditutup ${d.closing_time||'-'} oleh ${d.closing_employee||'-'}</p>
+    <div class="card">
+      <div class="stat-big" style="padding:4px 0 10px;"><div class="num" style="font-size:22px;">${fmtRM(totals.grand)}</div><div class="lb">JUMLAH SALES HARI TU</div></div>
+      ${PAY_METHODS.map(pm=>`<div class="stat-row"><span class="lb">${pm.ic} ${pm.label}</span><span class="val">${fmtRM(totals[pm.id]||0)}</span></div>`).join('')}
+      <div class="stat-row"><span class="lb">🧾 Jualan Vendor</span><span class="val">${fmtRM(totals.vendor||0)}</span></div>
+    </div>
+    <div class="card">
+      <h3>💵 Cash Drawer Hari Tu</h3>
+      <div class="stat-row"><span class="lb">Dibuka oleh</span><span class="val">${d.opening_employee||'-'} (${d.opening_time||'-'})</span></div>
+      <div class="stat-row"><span class="lb">Kiraan Nilai Permulaan</span><span class="val">${fmtRM(d.opening_amount)}</span></div>
+      <div class="stat-row"><span class="lb">Ditutup oleh</span><span class="val">${d.closing_employee||'-'} (${d.closing_time||'-'})</span></div>
+      <div class="stat-row"><span class="lb">Kiraan Nilai Penutup</span><span class="val">${fmtRM(d.physical)}</span></div>
+      <div class="stat-row"><span class="lb">Diserahkan kepada Ibu</span><span class="val">${fmtRM(d.serah_ibu)}</span></div>
+      <div class="stat-row"><span class="lb" style="font-weight:700;">Baki Tinggal Dalam Drawer</span><span class="val">${fmtRM(d.baki_akhir)}</span></div>
+    </div>
+    <div class="banner ${d.status_type}">${d.status_label}</div>
+  `;
+}
+
+/* ============ RESEPI ============ */
+let recipes = [];
+let recipeCategories = ['Kek','Cupcake','Dessert','Roti','Tart','Cookies','Cream/Filling','Ganache','Minuman','Topping','Sos','Lain-lain'];
+const UNIT_OPTIONS = ['gram','kilogram','mililiter','liter','sudu teh','sudu besar','cawan','biji','lain-lain'];
+let bahanRows = [];
+let resepiEditId = null;
+let scannedPrefill = null;
+let resepiSearch = '', resepiFilterKategori = '', resepiSort = 'nama';
+
+function newBahanRow(){ return { rid: Date.now()+Math.random(), nama:'', kuantiti:'', unit:'gram' }; }
+
+async function loadRecipes(){
+  const { data, error } = await supabase.from('recipes').select('*').eq('archived', false).order('nama');
+  recipes = error ? [] : data.map(r=>({
+    id:r.id, nama:r.nama, kategori:r.kategori, gambar:r.gambar, bahan:r.bahan||[],
+    caraPenyediaan:r.cara_penyediaan||'', suhuOven:r.suhu_oven||'', masaMasak:r.masa_masak||'',
+    saizLoyang:r.saiz_loyang||'', jumlahHasil:r.jumlah_hasil||'', nota:r.nota||'',
+    favorite:r.favorite, archived:r.archived,
+    tarikhMasuk:isoToDisplay(r.tarikh_masuk), tarikhKemaskini:isoToDisplay(r.tarikh_kemaskini),
+  }));
+}
+
+async function renderTambahResepi(editId, fromScan){
+  resepiEditId = editId || null;
+  let editing = null;
+  if(resepiEditId){
+    const { data } = await supabase.from('recipes').select('*').eq('id', resepiEditId).single();
+    if(data) editing = { id:data.id, nama:data.nama, kategori:data.kategori, gambar:data.gambar, bahan:data.bahan||[], caraPenyediaan:data.cara_penyediaan||'', suhuOven:data.suhu_oven||'', masaMasak:data.masa_masak||'', saizLoyang:data.saiz_loyang||'', jumlahHasil:data.jumlah_hasil||'', nota:data.nota||'' };
+  }
+  const prefill = (!editing && fromScan && scannedPrefill) ? scannedPrefill : null;
+  const src = editing || prefill;
+  bahanRows = src && src.bahan && src.bahan.length ? src.bahan.map(b=>({...b, rid: Date.now()+Math.random()})) : [newBahanRow()];
+  const hasUnclear = prefill ? JSON.stringify(prefill).includes('[TIDAK JELAS]') : false;
+
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="backToMenu()">← Kembali</button>
+    <h1>${editing ? '✏️ Edit Resepi' : (prefill ? '📷 Semak Hasil Scan' : '➕ Tambah Resepi')}</h1>
+    <p class="sub">${editing ? 'Kemaskini butiran resepi.' : (prefill ? 'Sila semak dan betulkan teks yang dibaca daripada gambar sebelum simpan.' : 'Isi ruangan di bawah untuk simpan resepi baharu.')}</p>
+    ${hasUnclear ? `<div class="banner warn" style="text-align:left;">⚠️ Ada bahagian bertanda [TIDAK JELAS] — sila semak &amp; betulkan sebelum simpan.</div>` : ''}
+
+    <div class="card">
+      <label>Nama Resepi</label>
+      <input type="text" id="rNama" placeholder="Contoh: Shell Tart Original" value="${src?src.nama:''}">
+      <label>Kategori</label>
+      <select id="rKategori">${recipeCategories.map(c=>`<option value="${c}" ${src&&src.kategori===c?'selected':''}>${c}</option>`).join('')}</select>
+      <label>Gambar Produk / Resepi Asal</label>
+      <input type="file" id="rGambar" accept="image/*" onchange="previewRecipeImage(event)">
+      <div id="rGambarPreview" style="margin-top:8px;">${src&&src.gambar?`<img src="${src.gambar}" style="width:100%;border-radius:12px;max-height:180px;object-fit:cover;">`:''}</div>
+      <h4>Senarai Bahan &amp; Kuantiti</h4>
+      <div id="bahanRowsWrap">${renderBahanRows()}</div>
+      <button class="btn-secondary" onclick="addBahanRow()">➕ Tambah Bahan</button>
+      <label>Cara Penyediaan</label>
+      <textarea id="rCara" rows="5" placeholder="Langkah demi langkah...">${src?src.caraPenyediaan:''}</textarea>
+      <label>Suhu Oven</label>
+      <input type="text" id="rSuhu" placeholder="Contoh: 180°C" value="${src?src.suhuOven:''}">
+      <label>Masa Membakar / Memasak</label>
+      <input type="text" id="rMasa" placeholder="Contoh: 25 minit" value="${src?src.masaMasak:''}">
+      <label>Saiz Loyang / Bekas</label>
+      <input type="text" id="rSaiz" placeholder="Contoh: Loyang 8 inci" value="${src?src.saizLoyang:''}">
+      <label>Jumlah Hasil / Bilangan Hidangan</label>
+      <input type="text" id="rHasil" placeholder="Contoh: 24 biji" value="${src?src.jumlahHasil:''}">
+      <label>Nota Penting</label>
+      <input type="text" id="rNota" placeholder="Contoh: Simpan dalam peti sejuk" value="${src?src.nota:''}">
+      <button class="btn-primary" id="resepiSaveBtn" onclick="saveResepi()">${editing?'Kemaskini Resepi':'Simpan Resepi'}</button>
+    </div>
+  `;
+}
+function renderBahanRows(){
+  return bahanRows.map((b)=>`
+    <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
+      <input type="text" placeholder="Nama bahan" value="${b.nama}" oninput="updateBahanRow('${b.rid}','nama',this.value)" style="flex:2;">
+      <input type="text" placeholder="Kuantiti" value="${b.kuantiti}" oninput="updateBahanRow('${b.rid}','kuantiti',this.value)" style="flex:1;">
+      <select onchange="updateBahanRow('${b.rid}','unit',this.value)" style="flex:1.3;">${UNIT_OPTIONS.map(u=>`<option value="${u}" ${b.unit===u?'selected':''}>${u}</option>`).join('')}</select>
+      ${bahanRows.length>1 ? `<button class="del-btn" onclick="removeBahanRow('${b.rid}')">✕</button>` : ''}
+    </div>`).join('');
+}
+function addBahanRow(){ bahanRows.push(newBahanRow()); document.getElementById('bahanRowsWrap').innerHTML = renderBahanRows(); }
+function removeBahanRow(rid){ bahanRows = bahanRows.filter(b=>b.rid!=rid); document.getElementById('bahanRowsWrap').innerHTML = renderBahanRows(); }
+function updateBahanRow(rid, field, val){ const b = bahanRows.find(x=>x.rid==rid); if(b) b[field]=val; }
+function previewRecipeImage(ev){
+  const file = ev.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('rGambarPreview').innerHTML = `<img src="${e.target.result}" style="width:100%;border-radius:12px;max-height:180px;object-fit:cover;">`; };
+  reader.readAsDataURL(file);
+}
+async function saveResepi(){
+  const nama = document.getElementById('rNama').value.trim();
+  if(!nama){ toast('Sila isi nama resepi.', true); return; }
+  const imgEl = document.querySelector('#rGambarPreview img');
+  const bahan = bahanRows.filter(b=>b.nama.trim()!=='').map(b=>({nama:b.nama.trim(), kuantiti:b.kuantiti.trim(), unit:b.unit}));
+  const payload = {
+    nama, kategori: document.getElementById('rKategori').value, gambar: imgEl ? imgEl.src : null, bahan,
+    cara_penyediaan: document.getElementById('rCara').value.trim(), suhu_oven: document.getElementById('rSuhu').value.trim(),
+    masa_masak: document.getElementById('rMasa').value.trim(), saiz_loyang: document.getElementById('rSaiz').value.trim(),
+    jumlah_hasil: document.getElementById('rHasil').value.trim(), nota: document.getElementById('rNota').value.trim(),
+    tarikh_kemaskini: todayISO(),
+  };
+  const btn = document.getElementById('resepiSaveBtn'); btn.disabled=true; btn.textContent='Menyimpan...';
+  let error;
+  if(resepiEditId){
+    ({error} = await supabase.from('recipes').update(payload).eq('id', resepiEditId));
+  } else {
+    ({error} = await supabase.from('recipes').insert({ ...payload, favorite:false, archived:false, tarikh_masuk: todayISO(), created_by: currentUser.id }));
+  }
+  if(btn){ btn.disabled=false; btn.textContent = resepiEditId?'Kemaskini Resepi':'Simpan Resepi'; }
+  if(error){ toast('Ralat simpan: ' + error.message, true); return; }
+  resepiEditId = null; scannedPrefill = null;
+  toast('Resepi disimpan.');
+  openModule('resepi');
+}
+async function renderResepiList(){
+  await loadRecipes();
+  drawResepiListPage();
+}
+function drawResepiListPage(){
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="backToMenu()">← Kembali</button>
+    <h1>📖 Resepi Saya</h1>
+    <p class="sub">${recipes.length} resepi tersimpan</p>
+    <div class="card">
+      <label>Cari Nama Resepi</label>
+      <input type="text" id="resepiSearchInput" placeholder="Taip nama resepi..." value="${resepiSearch}" oninput="onResepiSearchChange(this.value)">
+      <label>Tapis Kategori</label>
+      <select id="resepiFilterInput" onchange="onResepiFilterChange(this.value)">
+        <option value="">Semua Kategori</option>
+        ${recipeCategories.map(c=>`<option value="${c}" ${resepiFilterKategori===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+      <label>Susun Mengikut</label>
+      <select id="resepiSortInput" onchange="onResepiSortChange(this.value)">
+        <option value="nama" ${resepiSort==='nama'?'selected':''}>Nama (A-Z)</option>
+        <option value="tarikh" ${resepiSort==='tarikh'?'selected':''}>Terbaru Dikemaskini</option>
+        <option value="favorite" ${resepiSort==='favorite'?'selected':''}>Favourite Dulu</option>
+      </select>
+      <button class="btn-primary" onclick="openModule('tambah')">➕ Tambah Resepi Baharu</button>
+    </div>
+    <div id="resepiListWrap">${renderResepiCards()}</div>
+  `;
+}
+function onResepiSearchChange(v){ resepiSearch=v; document.getElementById('resepiListWrap').innerHTML = renderResepiCards(); }
+function onResepiFilterChange(v){ resepiFilterKategori=v; document.getElementById('resepiListWrap').innerHTML = renderResepiCards(); }
+function onResepiSortChange(v){ resepiSort=v; document.getElementById('resepiListWrap').innerHTML = renderResepiCards(); }
+function getFilteredResepi(){
+  let list = [...recipes];
+  if(resepiSearch.trim()) list = list.filter(r=>r.nama.toLowerCase().includes(resepiSearch.trim().toLowerCase()));
+  if(resepiFilterKategori) list = list.filter(r=>r.kategori===resepiFilterKategori);
+  if(resepiSort==='nama') list.sort((a,b)=>a.nama.localeCompare(b.nama));
+  else if(resepiSort==='tarikh') list.sort((a,b)=> new Date(b.tarikhKemaskini.split('/').reverse().join('-')) - new Date(a.tarikhKemaskini.split('/').reverse().join('-')));
+  else if(resepiSort==='favorite') list.sort((a,b)=> (b.favorite?1:0)-(a.favorite?1:0));
+  return list;
+}
+function renderResepiCards(){
+  const list = getFilteredResepi();
+  if(list.length===0) return `<div class="placeholder-card"><span class="ic">📖</span><h3>Tiada resepi</h3><p>Cuba tambah resepi baharu atau ubah carian/tapisan.</p></div>`;
+  return list.map(r=>`
+    <div class="card" style="cursor:pointer;" onclick="viewResepi('${r.id}')">
+      <div style="display:flex;gap:10px;align-items:center;">
+        ${r.gambar ? `<img src="${r.gambar}" style="width:56px;height:56px;border-radius:12px;object-fit:cover;flex-shrink:0;">` : `<div style="width:56px;height:56px;border-radius:12px;background:#f3eef6;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🍰</div>`}
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:14px;">${r.favorite?'⭐ ':''}${r.nama}</div>
+          <div class="sub2" style="margin-top:3px;"><span class="pm-tag">${r.kategori}</span></div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+async function viewResepi(id){
+  const r = recipes.find(x=>x.id===id);
+  if(!r) return;
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="openModule('resepi')">← Resepi Saya</button>
+    ${r.gambar ? `<img src="${r.gambar}" style="width:100%;border-radius:16px;max-height:220px;object-fit:cover;margin-bottom:14px;">` : ''}
+    <h1>${r.favorite?'⭐ ':''}${r.nama}</h1>
+    <p class="sub"><span class="pm-tag">${r.kategori}</span> · Dikemaskini ${r.tarikhKemaskini}</p>
+    <div class="card">
+      <h3>🥣 Bahan</h3>
+      ${r.bahan.length? r.bahan.map(b=>`<div class="stat-row"><span class="lb">${b.nama}</span><span class="val">${b.kuantiti} ${b.unit}</span></div>`).join('') : '<p class="sub">Tiada bahan direkodkan.</p>'}
+    </div>
+    <div class="card">
+      <h3>📝 Cara Penyediaan</h3>
+      <p style="font-size:13.5px;line-height:1.6;white-space:pre-wrap;">${r.caraPenyediaan||'-'}</p>
+    </div>
+    <div class="card">
+      <div class="stat-row"><span class="lb">Suhu Oven</span><span class="val">${r.suhuOven||'-'}</span></div>
+      <div class="stat-row"><span class="lb">Masa Memasak</span><span class="val">${r.masaMasak||'-'}</span></div>
+      <div class="stat-row"><span class="lb">Saiz Loyang/Bekas</span><span class="val">${r.saizLoyang||'-'}</span></div>
+      <div class="stat-row"><span class="lb">Jumlah Hasil</span><span class="val">${r.jumlahHasil||'-'}</span></div>
+      ${r.nota?`<div class="stat-row"><span class="lb">Nota</span><span class="val">${r.nota}</span></div>`:''}
+    </div>
+    <button class="btn-secondary" onclick="toggleFavoriteResepi('${r.id}')">${r.favorite?'★ Buang dari Favourite':'☆ Jadikan Favourite'}</button>
+    <button class="btn-secondary" onclick="renderTambahResepi('${r.id}')">✏️ Edit Resepi</button>
+    <button class="btn-secondary" onclick="printResepi('${r.id}')">🖨️ Cetak / PDF</button>
+    <button class="btn-secondary" onclick="archiveResepi('${r.id}')">🗄️ Arkibkan</button>
+    <button class="btn-secondary" style="color:var(--warn);border-color:#fecdd3;" onclick="deleteResepi('${r.id}')">🗑️ Padam Resepi</button>
+  `;
+}
+async function toggleFavoriteResepi(id){
+  const r = recipes.find(x=>x.id===id);
+  if(!r) return;
+  const { error } = await supabase.from('recipes').update({favorite: !r.favorite}).eq('id', id);
+  if(error){ toast('Ralat: ' + error.message, true); return; }
+  r.favorite = !r.favorite;
+  viewResepi(id);
+}
+function archiveResepi(id){
+  showConfirm('Arkibkan resepi ini? Ia akan disembunyikan daripada senarai utama.', async ()=>{
+    const { error } = await supabase.from('recipes').update({archived:true}).eq('id', id);
+    if(error){ toast('Ralat: ' + error.message, true); return; }
+    toast('Resepi diarkibkan.');
+    openModule('resepi');
+  });
+}
+function deleteResepi(id){
+  showConfirm('Padam resepi ini secara kekal? Tindakan ini tidak boleh diundur.', async ()=>{
+    const { error } = await supabase.from('recipes').delete().eq('id', id);
+    if(error){ toast('Ralat: ' + error.message, true); return; }
+    toast('Resepi dipadam.');
+    openModule('resepi');
+  });
+}
+function printResepi(id){
+  const r = recipes.find(x=>x.id===id);
+  if(!r) return;
+  const bahanRowsHtml = r.bahan.length
+    ? r.bahan.map(b=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;"><span>${b.nama}</span><span>${b.kuantiti} ${b.unit}</span></div>`).join('')
+    : '<div style="font-size:13px;">-</div>';
+  const printHtml = `<!DOCTYPE html><html lang="ms"><head><meta charset="UTF-8"><title>${r.nama} - Dapur Ibu</title>
+<style>
+  body{font-family:Arial,sans-serif;padding:32px;max-width:650px;margin:0 auto;color:#2a1e30;}
+  .head{font-family:cursive;font-size:30px;color:#7c3aed;margin-bottom:2px;}
+  .sub{font-size:11px;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;}
+  .title{font-size:22px;font-weight:800;margin:0 0 4px;}
+  .meta{font-size:12px;color:#666;margin-bottom:20px;}
+  .section{margin-bottom:20px;}
+  .section h4{font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:#7c3aed;border-bottom:1.5px solid #eee;padding-bottom:6px;margin-bottom:10px;}
+  .cara{font-size:13.5px;line-height:1.8;white-space:pre-wrap;}
+  .printbtn{margin-top:20px;padding:12px 20px;border:none;border-radius:10px;background:#7c3aed;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+  @media print{ .printbtn{display:none;} }
+</style></head>
+<body>
+  <div class="head">Dapur Ibu</div>
+  <div class="sub">Resepi Rasmi</div>
+  <div class="title">${r.nama}</div>
+  <div class="meta">Kategori: ${r.kategori} &nbsp;•&nbsp; Dikemaskini: ${r.tarikhKemaskini}</div>
+  <div class="section"><h4>Senarai Bahan</h4>${bahanRowsHtml}</div>
+  <div class="section"><h4>Cara Penyediaan</h4><div class="cara">${r.caraPenyediaan||'-'}</div></div>
+  <div class="section">
+    <h4>Butiran Lain</h4>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;"><span>Suhu Oven</span><span>${r.suhuOven||'-'}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;"><span>Masa Memasak</span><span>${r.masaMasak||'-'}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;"><span>Saiz Loyang/Bekas</span><span>${r.saizLoyang||'-'}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;"><span>Jumlah Hasil</span><span>${r.jumlahHasil||'-'}</span></div>
+    ${r.nota?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;"><span>Nota</span><span>${r.nota}</span></div>`:''}
+  </div>
+  <button class="printbtn" onclick="window.print()">🖨️ Cetak / Save as PDF</button>
+</body></html>`;
+  const blob = new Blob([printHtml], {type: 'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 30000);
+  toast('Dibuka dalam tab baharu. Tekan butang Cetak di situ.');
+}
+
+/* ============ SCAN RESEPI (OCR) ============ */
+let scanImageBase64 = null, scanImageMediaType = null;
+function renderScanResepi(){
+  scanImageBase64 = null; scanImageMediaType = null;
+  document.getElementById('modulePage').innerHTML = `
+    <button class="back-link" onclick="backToMenu()">← Kembali</button>
+    <h1>📷 Scan Resepi</h1>
+    <p class="sub">Snap atau muat naik gambar resepi bertulis/tercetak. Sistem cuba baca teks — Ibu semak &amp; betulkan sebelum simpan.</p>
+    <div class="card">
+      <label>Ambil / Pilih Gambar</label>
+      <input type="file" id="scanFileCamera" accept="image/*" capture="environment" style="display:none;" onchange="onScanFileSelected(event)">
+      <input type="file" id="scanFileGallery" accept="image/*" style="display:none;" onchange="onScanFileSelected(event)">
+      <button class="btn-secondary" onclick="document.getElementById('scanFileCamera').click()">📷 Snap Guna Kamera</button>
+      <button class="btn-secondary" onclick="document.getElementById('scanFileGallery').click()">🖼️ Pilih dari Galeri</button>
+      <div id="scanPreview" style="margin-top:10px;"></div>
+      <button class="btn-primary" id="scanBtn" onclick="runScanOCR()" disabled>Baca Resepi (OCR)</button>
+      <p id="scanStatus" class="sub" style="margin:10px 0 0;"></p>
+    </div>
+  `;
+}
+function onScanFileSelected(ev){
+  const file = ev.target.files[0]; if(!file) return;
+  scanImageMediaType = file.type;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    scanImageBase64 = dataUrl.split(',')[1];
+    document.getElementById('scanPreview').innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:12px;max-height:220px;object-fit:cover;">`;
+    document.getElementById('scanBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+async function runScanOCR(){
+  if(!scanImageBase64) return;
+  const btn = document.getElementById('scanBtn');
+  const status = document.getElementById('scanStatus');
+  btn.disabled = true; btn.textContent = 'Sedang membaca...';
+  status.textContent = 'Tunggu sebentar, sedang baca gambar...';
+  const promptText = `Anda melihat gambar resepi masakan/bakeri (tulisan tangan atau cetak), dalam Bahasa Malaysia atau Inggeris.
+Salin KANDUNGAN SEBENAR sahaja daripada gambar. JANGAN reka-reka, anggar, atau lengkapkan sukatan/maklumat yang tidak jelas kelihatan.
+Jika mana-mana bahagian tidak jelas atau tidak boleh dibaca, tandakan bahagian itu dengan teks "[TIDAK JELAS]".
+Balas HANYA dalam JSON tepat seperti berikut. Tiada teks lain. Tiada markdown code fence.
+{"nama":"","kategoriCadangan":"","bahan":[{"nama":"","kuantiti":"","unit":""}],"caraPenyediaan":"","suhuOven":"","masaMasak":"","saizLoyang":"","jumlahHasil":"","nota":""}
+Untuk "unit" setiap bahan, guna salah satu sahaja: gram, kilogram, mililiter, liter, sudu teh, sudu besar, cawan, biji, lain-lain.
+Untuk "kategoriCadangan", cadangkan satu sahaja daripada: ${recipeCategories.join(', ')}.`;
+  try{
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: [
+        { type: "image", source: { type: "base64", media_type: scanImageMediaType, data: scanImageBase64 } },
+        { type: "text", text: promptText } ] }] })
+    });
+    const data = await response.json();
+    const textBlock = (data.content || []).find(c => c.type === 'text');
+    if(!textBlock) throw new Error('Tiada respons diterima daripada sistem.');
+    const clean = textBlock.text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    scannedPrefill = {
+      nama: parsed.nama || '', kategori: recipeCategories.includes(parsed.kategoriCadangan) ? parsed.kategoriCadangan : 'Lain-lain',
+      gambar: 'data:' + scanImageMediaType + ';base64,' + scanImageBase64, bahan: Array.isArray(parsed.bahan) ? parsed.bahan : [],
+      caraPenyediaan: parsed.caraPenyediaan || '', suhuOven: parsed.suhuOven || '', masaMasak: parsed.masaMasak || '',
+      saizLoyang: parsed.saizLoyang || '', jumlahHasil: parsed.jumlahHasil || '', nota: parsed.nota || '',
+    };
+    status.textContent = '';
+    renderTambahResepi(null, true);
+  } catch(err){
+    status.textContent = '⚠️ Gagal baca gambar (' + err.message + '). Sila cuba gambar lain, atau isi manual melalui Tambah Resepi.';
+    btn.disabled = false; btn.textContent = 'Baca Resepi (OCR)';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
