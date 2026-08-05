@@ -103,31 +103,13 @@
 <body>
 <div class="wrap">
 
-  <div id="loadingScreen">Memuatkan...</div>
-
-  <div id="loginScreen">
-    <div class="logo-word">Dapur Ibu</div>
-    <div class="logo-sub">App Pengurusan Staff</div>
-    <div class="login-card">
-      <h2>Log Masuk</h2>
-      <p class="hint">Sila log masuk dengan akaun yang diberikan oleh admin.</p>
-      <label for="loginEmail">E-mel</label>
-      <input type="email" id="loginEmail" placeholder="contoh@email.com" autocomplete="username">
-      <label for="loginPass">Kata Laluan</label>
-      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
-      <button class="btn-primary" id="loginBtn" onclick="handleLogin()">Log Masuk</button>
-      <div class="err-msg" id="loginErr"></div>
-    </div>
-    <div class="login-foot">Legasi Dapur Ibu &copy; 2026</div>
-  </div>
+  <div id="loadingScreen" style="display:none;">Memuatkan...</div>
 
   <div id="appScreen">
     <div class="topbar">
       <div class="topbar-row">
         <div class="topbar-word">Dapur Ibu</div>
-        <button class="logout-btn" onclick="handleLogout()">Log Keluar</button>
       </div>
-      <div class="topbar-user"><span id="userLabel"></span>&nbsp;<span class="role-chip" id="roleChip">-</span></div>
     </div>
 
     <div id="mainMenuPage" class="menu-grid"></div>
@@ -149,6 +131,17 @@
   </div>
 </div>
 
+<div id="pwModal" style="display:none;position:fixed;inset:0;background:rgba(30,10,40,0.45);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:18px;padding:22px 20px;max-width:320px;width:88%;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+    <p id="pwMsg" style="font-size:14px;margin:0 0 12px;line-height:1.5;color:var(--ink);font-weight:600;"></p>
+    <input type="password" id="pwInput" placeholder="Kata laluan" style="margin-bottom:14px;">
+    <div style="display:flex;gap:10px;">
+      <button id="pwCancelBtn" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;">Batal</button>
+      <button id="pwOkBtn" style="flex:1;padding:12px;border-radius:12px;border:none;background:var(--grad);color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;">Sahkan</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =========================================================
    SUPABASE
@@ -159,8 +152,6 @@ let supabaseClient;
 try { supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
 catch(e){ document.getElementById('loadingScreen').textContent = 'Ralat sambungan: ' + e.message; }
 
-let currentUser = null;
-let currentRole = null;
 let currentUserName = '';
 
 function showFatalError(msg){
@@ -172,7 +163,7 @@ function showFatalError(msg){
 // kalau app tak sempat papar (login/dashboard) dalam 8 saat, papar ralat supaya tak stuck senyap
 let appShown = false;
 setTimeout(()=>{
-  if(!appShown) showFatalError('Mengambil masa lama untuk sambung ke Supabase. Semak sambungan internet Ibu, atau cuba refresh (tekan butang refresh browser). Kalau berterusan, mungkin URL/Key Supabase tak tepat, atau jadual "profiles" ada masalah.');
+  if(!appShown) showFatalError('Ralat memuatkan app. Cuba refresh (tekan butang refresh browser).');
 }, 8000);
 
 /* ============ TOAST & CONFIRM ============ */
@@ -194,6 +185,25 @@ function showConfirm(msg, onConfirm){
   cancelBtn.onclick = cleanup;
 }
 
+// Kata laluan khas untuk cetak resepi. Ibu boleh tukar nilai ini bila-bila
+// (edit fail, cari baris ni, tukar teks dalam petikan).
+const PRINT_PASSWORD = 'Ibu123456';
+
+function showPasswordPrompt(msg, onSubmit){
+  document.getElementById('pwMsg').textContent = msg;
+  const input = document.getElementById('pwInput');
+  input.value = '';
+  document.getElementById('pwModal').style.display = 'flex';
+  setTimeout(()=>input.focus(), 50);
+  const okBtn = document.getElementById('pwOkBtn');
+  const cancelBtn = document.getElementById('pwCancelBtn');
+  const cleanup = () => { document.getElementById('pwModal').style.display = 'none'; okBtn.onclick = null; cancelBtn.onclick = null; input.onkeydown = null; };
+  const submit = () => { const val = input.value; cleanup(); onSubmit(val); };
+  okBtn.onclick = submit;
+  cancelBtn.onclick = cleanup;
+  input.onkeydown = (e) => { if(e.key === 'Enter') submit(); };
+}
+
 /* ============ HELPERS ============ */
 function todayISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function isoToDisplay(iso){ if(!iso) return '-'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
@@ -201,95 +211,32 @@ function todayStr(){ return isoToDisplay(todayISO()); }
 function nowTimeStr(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function fmtRM(n){ return 'RM ' + (Math.round((n||0)*100)/100).toFixed(2); }
 
-/* ============ MENU ============ */
+/* ============ MENU (tiada login — semua staff nampak semua) ============ */
 const ALL_MENU = [
-  {id:'dashboard', ic:'🏠', lb:'Dashboard', roles:['admin','pekerja']},
-  {id:'resepi',    ic:'📖', lb:'Resepi Saya', roles:['admin']},
-  {id:'scan',      ic:'📷', lb:'Scan Resepi', roles:['admin']},
-  {id:'tambah',    ic:'➕', lb:'Tambah Resepi', roles:['admin']},
-  {id:'sales',     ic:'💰', lb:'Sales Harian', roles:['admin','pekerja']},
-  {id:'drawer',    ic:'💵', lb:'Cash Drawer', roles:['admin','pekerja']},
-  {id:'laporan',   ic:'📊', lb:'Laporan', roles:['admin']},
-  {id:'tetapan',   ic:'⚙️', lb:'Tetapan', roles:['admin','pekerja']},
+  {id:'dashboard', ic:'🏠', lb:'Dashboard'},
+  {id:'resepi',    ic:'📖', lb:'Resepi Saya'},
+  {id:'scan',      ic:'📷', lb:'Scan Resepi'},
+  {id:'tambah',    ic:'➕', lb:'Tambah Resepi'},
+  {id:'sales',     ic:'💰', lb:'Sales Harian'},
+  {id:'drawer',    ic:'💵', lb:'Cash Drawer'},
+  {id:'laporan',   ic:'📊', lb:'Laporan'},
+  {id:'tetapan',   ic:'⚙️', lb:'Tetapan'},
 ];
-function bottomNavItemsForRole(role){
-  return role === 'admin' ? ['dashboard','sales','drawer','laporan','resepi'] : ['dashboard','sales','drawer'];
-}
+const BOTTOM_NAV_IDS = ['dashboard','sales','drawer','laporan','resepi'];
 
-/* ============ AUTH ============ */
-async function init(){
-  try{
-    const { data, error } = await supabaseClient.auth.getSession();
-    if(error){ showLogin(); return; }
-    if(data.session){ await loadUserAndShowApp(data.session.user); }
-    else { showLogin(); }
-  } catch(e){
-    showFatalError('Ralat: ' + e.message);
-  }
-}
-function showLogin(){
+/* ============ START (tiada login) ============ */
+function init(){
   appShown = true;
-  document.getElementById('loadingScreen').style.display='none';
-  document.getElementById('loginScreen').style.display='flex';
-  document.getElementById('appScreen').style.display='none';
-}
-async function loadUserAndShowApp(user){
-  currentUser = user;
-  let data, error;
-  try{
-    const result = await Promise.race([
-      supabaseClient.from('profiles').select('role, nama').eq('id', user.id).single(),
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout tunggu jadual profiles (>6 saat). Semak jadual "profiles" dan RLS policy di Supabase.')), 6000))
-    ]);
-    data = result.data; error = result.error;
-  } catch(e){
-    showFatalError(e.message);
-    return;
-  }
-  if(error || !data){
-    document.getElementById('loginErr').textContent = 'Akaun belum ditetapkan role. Sila hubungi admin.';
-    document.getElementById('loginErr').style.display='block';
-    await supabaseClient.auth.signOut();
-    showLogin();
-    return;
-  }
-  currentRole = data.role;
-  currentUserName = data.nama || user.email;
-  document.getElementById('userLabel').textContent = currentUserName;
-  document.getElementById('roleChip').textContent = currentRole==='admin' ? 'ADMIN' : 'PEKERJA';
   renderMenu(); renderBottomNav();
-  appShown = true;
   document.getElementById('loadingScreen').style.display='none';
-  document.getElementById('loginScreen').style.display='none';
   document.getElementById('appScreen').style.display='block';
   openModule('dashboard');
-}
-async function handleLogin(){
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const errBox = document.getElementById('loginErr');
-  const btn = document.getElementById('loginBtn');
-  errBox.style.display='none';
-  if(!email || !pass){ errBox.textContent='Sila isi e-mel dan kata laluan.'; errBox.style.display='block'; return; }
-  btn.disabled=true; btn.textContent='Sedang log masuk...';
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
-  btn.disabled=false; btn.textContent='Log Masuk';
-  if(error){ errBox.textContent='E-mel atau kata laluan salah.'; errBox.style.display='block'; return; }
-  document.getElementById('loadingScreen').style.display='flex';
-  await loadUserAndShowApp(data.user);
-}
-async function handleLogout(){
-  await supabaseClient.auth.signOut();
-  currentUser=null; currentRole=null;
-  document.getElementById('loginEmail').value='';
-  document.getElementById('loginPass').value='';
-  showLogin();
 }
 
 function renderMenu(){
   const grid = document.getElementById('mainMenuPage');
   grid.innerHTML='';
-  ALL_MENU.filter(m=>m.roles.includes(currentRole)).forEach(m=>{
+  ALL_MENU.forEach(m=>{
     const t=document.createElement('div');
     t.className='menu-tile';
     t.onclick=()=>openModule(m.id);
@@ -300,7 +247,7 @@ function renderMenu(){
 function renderBottomNav(){
   const nav=document.getElementById('bottomNav');
   nav.innerHTML='';
-  bottomNavItemsForRole(currentRole).forEach(id=>{
+  BOTTOM_NAV_IDS.forEach(id=>{
     const m=ALL_MENU.find(x=>x.id===id);
     const b=document.createElement('button');
     b.className='nav-item'; b.id='nav-'+id;
@@ -483,7 +430,7 @@ function drawSalesPage(){
 
     <div class="card">
       <h3>📋 Senarai Jualan Vendor (${vendorSales.length})</h3>
-      <p class="sub" style="margin-bottom:10px;">Rekod disimpan kekal. ${currentRole==='admin' ? 'Sebagai Admin, Ibu boleh padam rekod.' : 'Hanya Admin boleh padam rekod ini.'}</p>
+      <p class="sub" style="margin-bottom:10px;">Rekod disimpan kekal.</p>
       <div id="vendorList">${renderVendorList()}</div>
     </div>
   `;
@@ -513,7 +460,7 @@ async function addSalesEntry(){
     ({error} = await supabaseClient.from('sales_entries').update({method, amount, note}).eq('id', editId));
     delete document.getElementById('salesForm').dataset.editId;
   } else {
-    ({error} = await supabaseClient.from('sales_entries').insert({ tarikh: todayISO(), method, amount, note, waktu: nowTimeStr(), created_by: currentUser.id }));
+    ({error} = await supabaseClient.from('sales_entries').insert({ tarikh: todayISO(), method, amount, note, waktu: nowTimeStr() }));
   }
   btn.disabled=false; btn.textContent='Simpan Rekod';
   if(error){ toast('Ralat simpan: ' + error.message, true); return; }
@@ -547,7 +494,7 @@ function renderVendorList(){
         <div class="sub2">Bayaran: ${v.tarikhBayaran} · ketik untuk edit</div>
       </div>
       <div class="amt">${fmtRM(v.jumlah)}</div>
-      ${currentRole==='admin' ? `<button class="del-btn" onclick="deleteVendorSale('${v.id}')" title="Padam">✕</button>` : ''}
+      <button class="del-btn" onclick="deleteVendorSale('${v.id}')" title="Padam">✕</button>
     </div>`).join('');
 }
 async function addVendorSale(){
@@ -564,7 +511,7 @@ async function addVendorSale(){
     ({error} = await supabaseClient.from('vendor_sales').update({ kedai, no_resit:noResit, tarikh_hantar: tarikhHantar||null, kaedah_bayaran:kaedahBayaran, jumlah }).eq('id', editId));
     delete document.getElementById('vendorForm').dataset.editId;
   } else {
-    ({error} = await supabaseClient.from('vendor_sales').insert({ kedai, no_resit:noResit, tarikh_hantar: tarikhHantar||null, kaedah_bayaran:kaedahBayaran, jumlah, tarikh_bayaran: todayISO(), created_by: currentUser.id }));
+    ({error} = await supabaseClient.from('vendor_sales').insert({ kedai, no_resit:noResit, tarikh_hantar: tarikhHantar||null, kaedah_bayaran:kaedahBayaran, jumlah, tarikh_bayaran: todayISO() }));
   }
   btn.disabled=false; btn.textContent='Simpan Jualan Vendor';
   if(error){ toast('Ralat simpan: ' + error.message, true); return; }
@@ -583,7 +530,6 @@ function editVendorSale(id){
   document.getElementById('vendorForm').scrollIntoView({behavior:'smooth', block:'start'});
 }
 function deleteVendorSale(id){
-  if(currentRole!=='admin'){ toast('Hanya Admin (Ibu) boleh padam rekod jualan vendor.', true); return; }
   showConfirm('Padam rekod ini?', async ()=>{
     const { error } = await supabaseClient.from('vendor_sales').delete().eq('id', id);
     if(error){ toast('Ralat padam: ' + error.message, true); return; }
@@ -682,7 +628,7 @@ async function saveOpening(){
   if(cashDrawerRowId){
     ({error} = await supabaseClient.from('cash_drawer_days').update({ opening_employee:employee, opening_time:time, opening_amount:amount, opening_denom:openDenom }).eq('id', cashDrawerRowId));
   } else {
-    const { data, error: insErr } = await supabaseClient.from('cash_drawer_days').insert({ tarikh: todayISO(), opening_employee:employee, opening_time:time, opening_amount:amount, opening_denom:openDenom, created_by: currentUser.id }).select().single();
+    const { data, error: insErr } = await supabaseClient.from('cash_drawer_days').insert({ tarikh: todayISO(), opening_employee:employee, opening_time:time, opening_amount:amount, opening_denom:openDenom }).select().single();
     error = insErr;
     if(!error && data) cashDrawerRowId = data.id;
   }
@@ -720,7 +666,7 @@ async function doClosing(){
   if(cashDrawerRowId){
     ({error} = await supabaseClient.from('cash_drawer_days').update(payload).eq('id', cashDrawerRowId));
   } else {
-    const { data, error: insErr } = await supabaseClient.from('cash_drawer_days').insert({ tarikh: todayISO(), created_by: currentUser.id, ...payload }).select().single();
+    const { data, error: insErr } = await supabaseClient.from('cash_drawer_days').insert({ tarikh: todayISO(), ...payload }).select().single();
     error = insErr;
     if(!error && data) cashDrawerRowId = data.id;
   }
@@ -924,7 +870,7 @@ async function saveResepi(){
   if(resepiEditId){
     ({error} = await supabaseClient.from('recipes').update(payload).eq('id', resepiEditId));
   } else {
-    ({error} = await supabaseClient.from('recipes').insert({ ...payload, favorite:false, archived:false, tarikh_masuk: todayISO(), created_by: currentUser.id }));
+    ({error} = await supabaseClient.from('recipes').insert({ ...payload, favorite:false, archived:false, tarikh_masuk: todayISO() }));
   }
   if(btn){ btn.disabled=false; btn.textContent = resepiEditId?'Kemaskini Resepi':'Simpan Resepi'; }
   if(error){ toast('Ralat simpan: ' + error.message, true); return; }
@@ -1041,6 +987,12 @@ function deleteResepi(id){
   });
 }
 function printResepi(id){
+  showPasswordPrompt('Kata laluan Ibu untuk cetak resepi:', (pw)=>{
+    if(pw !== PRINT_PASSWORD){ toast('Kata laluan salah. Cetak dibatalkan.', true); return; }
+    doPrintResepi(id);
+  });
+}
+function doPrintResepi(id){
   const r = recipes.find(x=>x.id===id);
   if(!r) return;
   const bahanRowsHtml = r.bahan.length
