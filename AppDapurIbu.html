@@ -298,6 +298,13 @@ const PAY_METHODS = [
 ];
 let salesEntries = [];
 let vendorSales = [];
+let runnerPayments = [];
+
+async function loadRunnerPayments(){
+  const { data, error } = await supabaseClient.from('runner_payments').select('*').eq('tarikh', todayISO()).order('created_at');
+  runnerPayments = error ? [] : data.map(r=>({ id:r.id, terimaCustomer:Number(r.terima_dari_customer)||0, bayarRunner:Number(r.bayar_runner), nota:r.nota||'', time:r.waktu||'' }));
+}
+function runnerTotal(){ return runnerPayments.reduce((s,r)=>s+r.bayarRunner,0); }
 
 async function loadSalesEntries(){
   const { data, error } = await supabaseClient.from('sales_entries').select('*').eq('tarikh', todayISO()).order('created_at');
@@ -348,12 +355,12 @@ async function loadCashDrawerToday(){
     diff: Number(data.diff)||0, statusLabel: data.status_label, statusType: data.status_type, bakiAkhir: Number(data.baki_akhir)||0,
   } : null;
 }
-function currentCashEstimate(){ return openingCash.amount + (salesTotals().cash||0); }
+function currentCashEstimate(){ return openingCash.amount + (salesTotals().cash||0) - runnerTotal(); }
 
 /* ============ DASHBOARD ============ */
 async function renderDashboard(){
   document.getElementById('mainMenuPage').insertAdjacentHTML('afterend', `<div id="dashSummary" class="page" style="padding-bottom:0;"><p class="spin-note">Memuatkan...</p></div>`);
-  await Promise.all([loadSalesEntries(), loadVendorSales(), loadCashDrawerToday()]);
+  await Promise.all([loadSalesEntries(), loadVendorSales(), loadCashDrawerToday(), loadRunnerPayments()]);
   const totals = salesTotals();
   const div = document.getElementById('dashSummary');
   div.innerHTML = `
@@ -366,7 +373,8 @@ async function renderDashboard(){
       <h3>💵 Status Cash Drawer</h3>
       <div class="stat-row"><span class="lb">Dibuka oleh</span><span class="val">${openingCash.employee||'-'} (${openingCash.time||'-'})</span></div>
       <div class="stat-row"><span class="lb">Kiraan Nilai Permulaan</span><span class="val">${fmtRM(openingCash.amount)}</span></div>
-      <div class="stat-row"><span class="lb">Jumlah Semasa (+ Sales Cash Hari Ini)</span><span class="val">${fmtRM(currentCashEstimate())}</span></div>
+      ${runnerTotal()>0 ? `<div class="stat-row"><span class="lb">🛵 Bayaran Runner Hari Ini</span><span class="val">- ${fmtRM(runnerTotal())}</span></div>` : ''}
+      <div class="stat-row"><span class="lb">Jumlah Semasa (Anggaran Cash Drawer)</span><span class="val">${fmtRM(currentCashEstimate())}</span></div>
       ${closing ? `
         <div class="stat-row" style="border-top:1.5px solid var(--line);margin-top:6px;padding-top:10px;"><span class="lb">Ditutup oleh</span><span class="val">${closing.closeEmp} (${closing.closeTime})</span></div>
         <div class="stat-row"><span class="lb">Kiraan Nilai Penutup</span><span class="val">${fmtRM(closing.physical)}</span></div>
@@ -378,7 +386,7 @@ async function renderDashboard(){
 
 /* ============ SALES HARIAN ============ */
 async function renderSales(){
-  await Promise.all([loadSalesEntries(), loadVendorSales()]);
+  await Promise.all([loadSalesEntries(), loadVendorSales(), loadRunnerPayments()]);
   drawSalesPage();
 }
 function drawSalesPage(){
@@ -408,6 +416,24 @@ function drawSalesPage(){
     <div class="card">
       <h3>📋 Rekod Hari Ini (${salesEntries.length})</h3>
       <div id="salesList">${renderSalesList()}</div>
+    </div>
+
+    <div class="card" id="runnerForm">
+      <h3>🛵 Bayaran Runner / Lalamove (Pass-through)</h3>
+      <p class="sub" style="margin-bottom:10px;">Untuk situasi customer transfer bayaran runner, tapi Ibu keluar tunai bayar runner tu. Ini <b>bukan</b> jualan Dapur Ibu — hanya rekod supaya cash drawer tepat.</p>
+      <label>Terima daripada Customer (RM) — jika ada</label>
+      <input type="number" id="runTerima" placeholder="0.00" min="0" step="0.01">
+      <label>Bayar kepada Runner (Tunai) (RM)</label>
+      <input type="number" id="runBayar" placeholder="0.00" min="0" step="0.01">
+      <label>Nota</label>
+      <input type="text" id="runNota" placeholder="Contoh: Lalamove runner Ali, order #1234">
+      <button class="btn-primary" id="runnerSaveBtn" onclick="addRunnerPayment()">Simpan Bayaran Runner</button>
+    </div>
+
+    <div class="card">
+      <h3>📋 Senarai Bayaran Runner (${runnerPayments.length})</h3>
+      <p class="sub" style="margin-bottom:10px;">Jumlah keseluruhan hari ini: ${fmtRM(runnerTotal())} (automatik ditolak dari Cash Drawer)</p>
+      <div id="runnerList">${renderRunnerList()}</div>
     </div>
 
     <div class="card" id="vendorForm">
@@ -538,6 +564,40 @@ function deleteVendorSale(id){
   });
 }
 
+/* ============ BAYARAN RUNNER / LALAMOVE ============ */
+function renderRunnerList(){
+  if(runnerPayments.length===0) return `<p style="color:var(--muted);font-size:13px;">Belum ada rekod.</p>`;
+  return [...runnerPayments].reverse().map(r=>`
+    <div class="entry-item">
+      <div style="flex:1;">
+        <span class="pm-tag">🛵 Runner</span>${r.nota?('<span style="color:var(--muted)">'+r.nota+'</span>'):''}
+        <div class="sub2">Terima: ${fmtRM(r.terimaCustomer)} · ${r.time}</div>
+      </div>
+      <div class="amt">- ${fmtRM(r.bayarRunner)}</div>
+      <button class="del-btn" onclick="deleteRunnerPayment('${r.id}')" title="Padam">✕</button>
+    </div>`).join('');
+}
+async function addRunnerPayment(){
+  const terimaCustomer = parseFloat(document.getElementById('runTerima').value)||0;
+  const bayarRunner = parseFloat(document.getElementById('runBayar').value);
+  const nota = document.getElementById('runNota').value.trim();
+  if(!bayarRunner || bayarRunner<=0){ toast('Sila masukkan jumlah bayaran runner yang sah.', true); return; }
+  const btn = document.getElementById('runnerSaveBtn'); btn.disabled=true; btn.textContent='Menyimpan...';
+  const { error } = await supabaseClient.from('runner_payments').insert({ tarikh: todayISO(), terima_dari_customer: terimaCustomer, bayar_runner: bayarRunner, nota, waktu: nowTimeStr() });
+  btn.disabled=false; btn.textContent='Simpan Bayaran Runner';
+  if(error){ toast('Ralat simpan: ' + error.message, true); return; }
+  await loadRunnerPayments();
+  drawSalesPage();
+}
+function deleteRunnerPayment(id){
+  showConfirm('Padam rekod ini?', async ()=>{
+    const { error } = await supabaseClient.from('runner_payments').delete().eq('id', id);
+    if(error){ toast('Ralat padam: ' + error.message, true); return; }
+    await loadRunnerPayments();
+    drawSalesPage();
+  });
+}
+
 /* ============ CASH DRAWER ============ */
 function renderDenomTable(groupId, stateObj){
   return `
@@ -572,7 +632,7 @@ function updateBakiAkhirLive(){
   if(out) out.textContent = fmtRM(physical - serahIbu);
 }
 async function renderDrawer(){
-  await Promise.all([loadSalesEntries(), loadCashDrawerToday()]);
+  await Promise.all([loadSalesEntries(), loadCashDrawerToday(), loadRunnerPayments()]);
   drawDrawerPage();
 }
 function drawDrawerPage(){
@@ -604,6 +664,7 @@ function drawDrawerPage(){
       <input type="number" id="bankIn" value="0" min="0" step="0.01">
       <label>Perbelanjaan Tunai Kedai (RM)</label>
       <input type="number" id="expense" value="0" min="0" step="0.01">
+      ${runnerTotal()>0 ? `<div class="stat-row"><span class="lb">🛵 Bayaran Runner Hari Ini (auto)</span><span class="val">${fmtRM(runnerTotal())}</span></div>` : ''}
       <label>Nota (jika ada perbezaan)</label>
       <input type="text" id="closeNote" placeholder="Sebab perbezaan, jika ada">
       <h4>Kiraan Wang Penutup (ikut nilai)</h4>
@@ -648,7 +709,7 @@ async function doClosing(){
   const note = document.getElementById('closeNote').value.trim();
   const physical = denomTotalOf(closeDenom);
 
-  const expected = openingCash.amount + (totals.cash||0) - cashOut - bankIn - expense;
+  const expected = openingCash.amount + (totals.cash||0) - cashOut - bankIn - expense - runnerTotal();
   const diff = Math.round((physical - expected)*100)/100;
   let statusLabel, statusType;
   if(diff===0){ statusLabel='✅ Cash drawer seimbang. Tiada perbezaan.'; statusType='ok'; }
@@ -687,6 +748,7 @@ function showClosingResult(c){
       <div class="stat-row"><span class="lb">- Cash Keluar</span><span class="val">${fmtRM(c.cashOut)}</span></div>
       <div class="stat-row"><span class="lb">- Bank-in</span><span class="val">${fmtRM(c.bankIn)}</span></div>
       <div class="stat-row"><span class="lb">- Perbelanjaan</span><span class="val">${fmtRM(c.expense)}</span></div>
+      ${runnerTotal()>0 ? `<div class="stat-row"><span class="lb">- 🛵 Bayaran Runner</span><span class="val">${fmtRM(runnerTotal())}</span></div>` : ''}
       <div class="stat-row"><span class="lb" style="font-weight:700;">= Cash Sepatutnya Ada</span><span class="val">${fmtRM(c.expected)}</span></div>
       <div class="stat-row"><span class="lb" style="font-weight:700;">Cash Fizikal (Kiraan Penutup)</span><span class="val">${fmtRM(c.physical)}</span></div>
     </div>
